@@ -208,7 +208,7 @@ if "procesado" not in st.session_state:
 if ejecutar and file_180 is not None and file_84 is not None:
     with st.spinner("Procesando registros..."):
         try:
-            from verificador_georef_completo_1 import (
+            from verificador_georef_completo_3 import (
                 aplicar_bloque1, aplicar_bloque5, aplicar_bloque6,
                 aplicar_bloque7, aplicar_bloque8, aplicar_bloque9,
                 aplicar_bloque10
