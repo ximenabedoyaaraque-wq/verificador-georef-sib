@@ -154,6 +154,7 @@ section[data-testid="stSidebar"] {
 BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 GADM_PATH = os.path.join(BASE_DIR, "datos", "gadm41_COL_2.json")
 sys.path.insert(0, BASE_DIR)
+sys.path.insert(0, os.path.join(BASE_DIR, "bloques"))
 
 # ─── Sidebar ──────────────────────────────────────────────────
 with st.sidebar:
@@ -207,13 +208,11 @@ if "procesado" not in st.session_state:
 if ejecutar and file_180 is not None and file_84 is not None:
     with st.spinner("Procesando registros..."):
         try:
-            from bloque1_coordenadas import aplicar_bloque1
-            from bloque5_campos      import aplicar_bloque5
-            from bloque6_verbatim    import aplicar_bloque6
-            from bloque7_clasificacion import aplicar_bloque7
-            from bloque8_reclasificacion import aplicar_bloque8
-            from bloque9_centroides  import aplicar_bloque9
-            from bloque10_exportar   import aplicar_bloque10
+            from verificador_georef_completo import (
+                aplicar_bloque1, aplicar_bloque5, aplicar_bloque6,
+                aplicar_bloque7, aplicar_bloque8, aplicar_bloque9,
+                aplicar_bloque10
+            )
 
             # Guardar archivos temporalmente
             with open("/tmp/base_180.xlsx", "wb") as f:
