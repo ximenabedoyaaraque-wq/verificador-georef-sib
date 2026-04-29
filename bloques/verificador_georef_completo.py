@@ -307,31 +307,6 @@ def aplicar_bloque1(df84_path, df180_path, idioma="es"):
     return df
 
 
-if __name__ == "__main__":
-    df = aplicar_bloque1(
-        "/mnt/project/Mamiferos_estandarizados_84F.xlsx",
-        "/mnt/project/mamiferosestandarizacion180Fxls.xls"
-    )
-
-    print("\n=== MUESTRA DE CONVERSIONES ===")
-    muestra = df[df["conversion_estado"] != "sin coordenadas"][
-        ["Latitud original", "lat_decimal_calculada",
-         "Longitud original", "lon_decimal_calculada",
-         "formato_coordenada", "conversion_estado", "*Municipio"]
-    ].drop_duplicates(subset=["Latitud original"]).head(12)
-    print(muestra.to_string())
-
-    print("\n=== CASOS QUE REQUIEREN REVISION ===")
-    revisar = df[df["conversion_estado"] == "Revisar"][
-        ["Latitud original", "Longitud original", "conversion_nota", "*Municipio"]
-    ]
-    if len(revisar) > 0:
-        print(revisar.head(10).to_string())
-    else:
-        print("Ninguno ✅")
-
-
-
 # ─────────────────────────────────────────────────────────────────
 # BLOQUE 4 — Incertidumbre (Tabla 2 del manual)
 # Separado aquí para importar fácilmente desde otros bloques
@@ -803,18 +778,6 @@ def aplicar_bloque5(df, idioma=None):
     return df, reporte
 
 
-if __name__ == "__main__":
-    import sys
-    sys.path.insert(0, "/home/claude")
-    from bloque1_coordenadas import aplicar_bloque1
-
-    df = aplicar_bloque1(
-        "/mnt/project/Mamiferos_estandarizados_84F.xlsx",
-        "/mnt/project/mamiferosestandarizacion180Fxls.xls"
-    )
-    df, reporte = aplicar_bloque5(df)
-    print(f"\n  Total columnas después del Bloque 5: {len(df.columns)}")
-
 """
 BLOQUE 6 — Verificación verbatimLocality vs locality (3 casos del manual)
 Protocolo SiB Colombia / Instituto Humboldt — Sección 3.6
@@ -1100,40 +1063,6 @@ def aplicar_bloque7(df, idioma="es"):
 # PRUEBA con datos reales
 # ─────────────────────────────────────────────
 
-if __name__ == "__main__":
-    df84  = pd.read_excel("/mnt/project/Mamiferos_estandarizados_84F.xlsx")
-    df180 = pd.read_excel("/mnt/project/mamiferosestandarizacion180Fxls.xls")
-
-    # Unir las dos bases con columna Origen
-    df84["Origen"]  = "84_sin_coordenadas"
-    df180["Origen"] = "180_con_coordenadas"
-
-    # Normalizar nombre de columna localidad (difiere entre archivos)
-    df84  = df84.rename(columns={"*Localidad Estandarizada": "*Localidad estandarizada"})
-
-    # Alinear columnas (df84 tiene 91 cols, df180 tiene 92)
-    cols_comunes = [c for c in df180.columns if c in df84.columns]
-    df_unido = pd.concat([df180[cols_comunes + ["Origen"]],
-                          df84[cols_comunes + ["Origen"]]], ignore_index=True)
-    print(f"Total registros unidos: {len(df_unido)}")
-
-    df_result = aplicar_bloque7(df_unido, idioma="es")
-
-    # Resumen por nivel
-    print("\n=== DISTRIBUCIÓN DE NIVELES INICIALES ===")
-    resumen = df_result["Nivel_inicial"].value_counts().sort_index()
-    for nivel, count in resumen.items():
-        print(f"  Nivel {nivel}: {count} registros")
-
-    print("\n=== MUESTRA POR NIVEL ===")
-    for nivel in sorted(df_result["Nivel_inicial"].unique()):
-        muestra = df_result[df_result["Nivel_inicial"] == nivel][
-            ["*Localidad estandarizada", "*Municipio", "Nivel_inicial", "Justificacion_nivel"]
-        ].drop_duplicates(subset=["*Localidad estandarizada"]).head(4)
-        print(f"\n--- Nivel {nivel} ---")
-        for _, r in muestra.iterrows():
-            print(f"  '{r['*Localidad estandarizada']}' | {r['*Municipio']} | {r['Justificacion_nivel']}")
-
 """
 BLOQUE 8 — Reclasificación después de verificar coordenadas
 Protocolo SiB Colombia / Instituto Humboldt
@@ -1332,42 +1261,6 @@ def aplicar_bloque8(df, ruta_gadm, idioma="es"):
     return df
 
 
-if __name__ == "__main__":
-    import sys
-    sys.path.insert(0, "/home/claude")
-    from bloque7_clasificacion import aplicar_bloque7
-
-    df84  = pd.read_excel("/mnt/project/Mamiferos_estandarizados_84F.xlsx")
-    df84  = df84.rename(columns={"*Localidad Estandarizada": "*Localidad estandarizada"})
-    df84["Origen"]  = "84_sin_coordenadas"
-    df180 = pd.read_excel("/mnt/project/mamiferosestandarizacion180Fxls.xls")
-    df180["Origen"] = "180_con_coordenadas"
-    cols = [c for c in df180.columns if c in df84.columns]
-    df   = pd.concat([df180[cols+["Origen"]], df84[cols+["Origen"]]], ignore_index=True)
-    df   = aplicar_bloque7(df)
-
-    # Probar conversión sin GADM
-    print("=== PRUEBA CONVERSIÓN DE COORDENADAS ===")
-    nivel1 = df[df["Nivel_inicial"]==1].head(15)
-    ok = err = 0
-    for _, row in nivel1.iterrows():
-        lat, lon, fuente = obtener_coordenadas_decimales(
-            row, "Latitud original", "Longitud original",
-            "Latitud decimal", "Longitud decimal")
-        estado = "✅" if lat else "❌"
-        if lat: ok += 1
-        else: err += 1
-        print(f"  {estado} {row['Latitud original']!s:<15} → lat={lat}, lon={lon} [{fuente}]")
-    print(f"\nConvertidos: {ok} | Errores: {err}")
-
-    # Si hay GADM disponible, correr validación completa
-    gadm_path = "/mnt/project/datos/gadm41_COL_2.json"
-    if os.path.exists(gadm_path):
-        df = aplicar_bloque8(df, gadm_path)
-        print("\n=== RESULTADOS VALIDACIÓN ESPACIAL ===")
-        resumen = df[df["Nivel_inicial"]==1]["validacion_b2"].value_counts()
-        for estado, cnt in resumen.items():
-            print(f"  {estado}: {cnt}")
 """
 BLOQUE 9 — Asignación de coordenadas para registros sin coordenadas (Niveles 2-6)
 Protocolo SiB Colombia / Instituto Humboldt — Tabla 9 y sección 3.5.2 del manual
@@ -1696,60 +1589,6 @@ def aplicar_bloque9(df, ruta_gadm, idioma=None, usar_nominatim=True):
 # ─────────────────────────────────────────────────────────────────
 # PRUEBA con datos reales
 # ─────────────────────────────────────────────────────────────────
-
-if __name__ == "__main__":
-    import sys, os
-    sys.path.insert(0, "/home/claude")
-    from bloque7_clasificacion import aplicar_bloque7
-    from bloque8_reclasificacion import aplicar_bloque8
-
-    # Cargar y unir bases
-    df84  = pd.read_excel("/mnt/project/Mamiferos_estandarizados_84F.xlsx")
-    df84  = df84.rename(columns={"*Localidad Estandarizada": "*Localidad estandarizada"})
-    df84["Origen"]  = "84_sin_coordenadas"
-    df180 = pd.read_excel("/mnt/project/mamiferosestandarizacion180Fxls.xls")
-    df180["Origen"] = "180_con_coordenadas"
-    cols_c = [c for c in df180.columns if c in df84.columns]
-    df = pd.concat([df180[cols_c+["Origen"]], df84[cols_c+["Origen"]]], ignore_index=True)
-
-    # Bloques 7 y 8
-    df = aplicar_bloque7(df)
-
-    GADM = "/mnt/project/datos/gadm41_COL_2.json" \
-        if os.path.exists("/mnt/project/datos/gadm41_COL_2.json") else None
-
-    if GADM:
-        df = aplicar_bloque8(df, GADM)
-        df = aplicar_bloque9(df, GADM, idioma="es", usar_nominatim=False)
-
-        print("\n=== MUESTRA RESULTADO FINAL ===")
-        cols_ver = ["*Municipio", "Nivel_final",
-                    "Latitud georreferenciada", "Longitud georreferenciada",
-                    "Fuentes de georreferenciación"]
-        sin_coord = df[df["Nivel_final"].isin([2,3,4,5,6])]
-        print(sin_coord[cols_ver].head(10).to_string())
-
-        print("\n=== RESUMEN FINAL ===")
-        print(df["Nivel_final"].value_counts().sort_index())
-    else:
-        # Prueba sin GADM — solo verificar que la lógica corre
-        print("GADM no disponible — probando lógica sin validación espacial")
-        df["lat_wgs84"]    = np.nan
-        df["lon_wgs84"]    = np.nan
-        df["Nivel_final"]  = df.apply(
-            lambda r: 1 if pd.notna(r["Latitud original"]) and
-            str(r["Latitud original"]).strip() not in ["","nan"] else 4, axis=1)
-
-        print(f"Registros sin coordenadas (Nivel 4 provisional): {(df['Nivel_final']==4).sum()}")
-        print(f"Registros con coordenadas (Nivel 1 provisional): {(df['Nivel_final']==1).sum()}")
-
-        # Probar detección de idioma
-        idioma = detectar_idioma(df)
-        cols = nombres_columnas(idioma)
-        print(f"\nIdioma detectado: {idioma}")
-        print(f"Columna lat final: '{cols['lat_final']}'")
-        print(f"Columna fuentes:   '{cols['fuentes']}'")
-        print(f"Columna comentarios: '{cols['comentarios']}'")
 
 """
 BLOQUE 10 — Exportar Excel final con colores y hoja de resumen
@@ -2636,51 +2475,3 @@ def aplicar_bloque10(df, ruta_salida=None, idioma=None):
 
 
 # ─── Prueba ────────────────────────────────────────────────────
-if __name__ == "__main__":
-    import sys
-    sys.path.insert(0, "/home/claude")
-    from bloque7_clasificacion import aplicar_bloque7
-
-    df84  = pd.read_excel("/mnt/project/Mamiferos_estandarizados_84F.xlsx")
-    df84  = df84.rename(columns={"*Localidad Estandarizada": "*Localidad estandarizada"})
-    df84["Origen"]  = "84_sin_coordenadas"
-    df180 = pd.read_excel("/mnt/project/mamiferosestandarizacion180Fxls.xls")
-    df180["Origen"] = "180_con_coordenadas"
-    cols_c = [c for c in df180.columns if c in df84.columns]
-    df = pd.concat([df180[cols_c+["Origen"]], df84[cols_c+["Origen"]]], ignore_index=True)
-    df = aplicar_bloque7(df)
-    df["Nivel_final"]           = df["Nivel_inicial"].copy()
-    df["lat_wgs84"]             = np.nan
-    df["lon_wgs84"]             = np.nan
-    df["fuente_conversion"]     = ""
-    df["validacion_b2"]         = ""
-    df["municipio_detectado"]   = ""
-    df["depto_detectado"]       = ""
-    df["mensaje_b2"]            = ""
-    df["Fuentes de georreferenciación"] = ""
-    df["Comentarios de la georreferenciación"] = ""
-    df.loc[df["Nivel_final"]==1, "validacion_b2"] = "✅"
-    df.loc[df.index[10:15], "validacion_b2"] = "⚠"
-    df.loc[df.index[15:18], "validacion_b2"] = "❌"
-
-    ruta = "/mnt/user-data/outputs/verificador_georef_v4.xlsx"
-    aplicar_bloque10(df, ruta_salida=ruta, idioma="es")
-
-    # Verificar
-    import openpyxl
-    from collections import Counter
-    wb = openpyxl.load_workbook(ruta)
-    ws = wb["Registros"]
-    cols_excel = [ws.cell(1, c).value for c in range(1, ws.max_column+1)]
-    print(f"\nTotal columnas: {len(cols_excel)}")
-    dups = [c for c,n in Counter(cols_excel).items() if n > 1]
-    print(f"Duplicadas: {dups if dups else 'ninguna ✅'}")
-    print("\nUltimas 10 columnas:")
-    for c in cols_excel[-10:]: print(f"  {c}")
-
-    # Verificar que no hay emojis en celdas de datos
-    val_col = cols_excel.index("Resultado validación espacial") + 1
-    print("\nMuestra Resultado validación espacial (sin emojis):")
-    for r in range(2, 8):
-        print(f"  fila {r}: {ws.cell(r, val_col).value}")
-
