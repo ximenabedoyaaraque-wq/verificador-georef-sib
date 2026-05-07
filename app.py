@@ -91,14 +91,14 @@ section[data-testid="stSidebar"] > div {
 .logo-wrap { margin-bottom: 24px; }
 .logo-name {
   font-family: var(--serif) !important;
-  font-size: 18px;
+  font-size: 21px;
   font-weight: 500;
   color: var(--moss) !important;
   line-height: 1.2;
   letter-spacing: -.01em;
 }
 .logo-sub {
-  font-size: 10px;
+  font-size: 16px;
   font-weight: 400;
   color: var(--ink-3) !important;
   text-transform: uppercase;
@@ -108,7 +108,7 @@ section[data-testid="stSidebar"] > div {
 
 /* ── Upload labels ───────────────────────────────── */
 .upload-label {
-  font-size: 10px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--ink-3) !important;
   text-transform: uppercase;
@@ -125,7 +125,7 @@ section[data-testid="stSidebar"] > div {
   gap: 5px;
   padding: 4px 10px;
   border-radius: 20px;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 500;
   margin-bottom: 4px;
   width: 100%;
@@ -137,7 +137,7 @@ section[data-testid="stSidebar"] > div {
 
 /* ── Copyright sidebar ───────────────────────────── */
 .copy {
-  font-size: 9.5px;
+  font-size: 15px;
   color: var(--ink-3) !important;
   line-height: 1.7;
   margin-top: 20px;
@@ -148,7 +148,7 @@ section[data-testid="stSidebar"] > div {
 /* ── Hero ────────────────────────────────────────── */
 .hero { margin-bottom: 40px; }
 .hero-eyebrow {
-  font-size: 10px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--fern) !important;
   text-transform: uppercase;
@@ -157,7 +157,7 @@ section[data-testid="stSidebar"] > div {
 }
 .hero-title {
   font-family: var(--serif) !important;
-  font-size: clamp(28px, 4vw, 42px);
+  font-size: clamp(34px, 5vw, 52px);
   font-weight: 300;
   color: var(--ink) !important;
   line-height: 1.15;
@@ -169,7 +169,7 @@ section[data-testid="stSidebar"] > div {
   color: var(--fern) !important;
 }
 .hero-desc {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--ink-3) !important;
   max-width: 560px;
   line-height: 1.65;
@@ -196,14 +196,14 @@ section[data-testid="stSidebar"] > div {
 }
 .metric-num {
   font-family: var(--serif) !important;
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 400;
   color: var(--moss) !important;
   line-height: 1;
   margin-bottom: 5px;
 }
 .metric-label {
-  font-size: 10px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--ink-3) !important;
   text-transform: uppercase;
@@ -224,14 +224,14 @@ section[data-testid="stSidebar"] > div {
   background: var(--mist);
   border: 1.5px solid var(--border);
   display: flex; align-items: center; justify-content: center;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--fern) !important;
   flex-shrink: 0;
   margin-top: 1px;
 }
 .step-text {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--ink-2) !important;
   line-height: 1.5;
   padding-top: 2px;
@@ -250,7 +250,7 @@ section[data-testid="stSidebar"] > div {
   background: var(--border-2);
 }
 .section-label {
-  font-size: 10px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--ink-3) !important;
   text-transform: uppercase;
@@ -281,13 +281,13 @@ section[data-testid="stSidebar"] > div {
 }
 .chip-num {
   font-family: var(--serif) !important;
-  font-size: 20px;
+  font-size: 23px;
   font-weight: 400;
   color: var(--ink) !important;
   line-height: 1;
 }
 .chip-label {
-  font-size: 10px;
+  font-size: 16px;
   color: var(--ink-3) !important;
   text-transform: uppercase;
   letter-spacing: .08em;
@@ -296,7 +296,7 @@ section[data-testid="stSidebar"] > div {
 /* ── Tab override ────────────────────────────────── */
 button[data-baseweb="tab"] {
   font-family: var(--sans) !important;
-  font-size: 12px !important;
+  font-size: 16px !important;
   font-weight: 500 !important;
   letter-spacing: .03em !important;
   text-transform: uppercase !important;
@@ -309,7 +309,7 @@ button[data-baseweb="tab"] {
   border-left: 3px solid var(--fern);
   border-radius: var(--r);
   padding: 14px 16px;
-  font-size: 12.5px;
+  font-size: 15px;
   color: var(--ink-2) !important;
   line-height: 1.6;
 }
@@ -325,19 +325,19 @@ button[data-baseweb="tab"] {
 }
 .dl-title {
   font-family: var(--serif) !important;
-  font-size: 20px;
+  font-size: 23px;
   font-weight: 400;
   color: var(--ink) !important;
   margin-bottom: 8px;
 }
 .dl-desc {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--ink-3) !important;
   line-height: 1.6;
   margin-bottom: 20px;
 }
 .dl-list {
-  font-size: 12px;
+  font-size: 16px;
   color: var(--ink-2) !important;
   line-height: 1.8;
   padding-left: 0;
@@ -347,7 +347,7 @@ button[data-baseweb="tab"] {
 
 /* ── Reference ───────────────────────────────────── */
 .reference {
-  font-size: 11px;
+  font-size: 15px;
   color: var(--ink-3) !important;
   line-height: 1.7;
   padding: 16px;
