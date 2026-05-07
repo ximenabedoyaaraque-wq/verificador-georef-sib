@@ -152,9 +152,19 @@ section[data-testid="stSidebar"] {
 
 # ─── Rutas ────────────────────────────────────────────────────
 BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
-GADM_PATH = os.path.join(BASE_DIR, "datos", "gadm41_COL_2.json")
 sys.path.insert(0, BASE_DIR)
 sys.path.insert(0, os.path.join(BASE_DIR, "bloques"))
+
+# Buscar GADM en múltiples rutas posibles (local y Streamlit Cloud)
+_posibles_gadm = [
+    os.path.join(BASE_DIR, "datos", "gadm41_COL_2.json"),
+    os.path.join(BASE_DIR, "..", "datos", "gadm41_COL_2.json"),
+    "/mount/src/verificador-georef-sib/datos/gadm41_COL_2.json",
+    "datos/gadm41_COL_2.json",
+]
+GADM_PATH = next((p for p in _posibles_gadm if os.path.exists(p)), None)
+if GADM_PATH:
+    GADM_PATH = os.path.abspath(GADM_PATH)
 
 # ─── Sidebar ──────────────────────────────────────────────────
 with st.sidebar:
@@ -174,12 +184,12 @@ with st.sidebar:
 
     st.divider()
 
-    gadm_ok = os.path.exists(GADM_PATH)
+    gadm_ok = GADM_PATH is not None and os.path.exists(GADM_PATH)
     if gadm_ok:
         st.success("✓ Capa GADM Colombia cargada", icon="🗺️")
     else:
-        st.warning("Capa GADM no encontrada en datos/", icon="⚠️")
-        st.caption("Sube gadm41_COL_2.json a la carpeta datos/ del repositorio.")
+        st.warning("Capa GADM no encontrada", icon="⚠️")
+        st.caption("Verifica que gadm41_COL_2.json esté en la carpeta datos/ del repositorio.")
 
     ejecutar = st.button("▶ Ejecutar análisis",
                          use_container_width=True,
@@ -208,7 +218,7 @@ if "procesado" not in st.session_state:
 if ejecutar and file_180 is not None and file_84 is not None:
     with st.spinner("Procesando registros..."):
         try:
-            from verificador_georef_completo_5 import (
+            from verificador_georef_completo_6 import (
                 aplicar_bloque1, aplicar_bloque5, aplicar_bloque6,
                 aplicar_bloque7, aplicar_bloque8, aplicar_bloque9,
                 aplicar_bloque10
@@ -235,7 +245,7 @@ if ejecutar and file_180 is not None and file_84 is not None:
             # Bloque 8 — validación espacial (requiere GADM)
             progress.progress(50, text="Validando coordenadas contra municipios...")
             if gadm_ok:
-                df = aplicar_bloque8(df, GADM_PATH)
+                df = aplicar_bloque8(df, GADM_PATH) if GADM_PATH else df
             else:
                 df["Nivel_final"]         = df["Nivel_inicial"].copy()
                 df["lat_wgs84"]           = df["lat_decimal_calculada"]
@@ -249,7 +259,7 @@ if ejecutar and file_180 is not None and file_84 is not None:
 
             # Bloque 9 — centroides para sin coordenadas
             progress.progress(70, text="Asignando centroides...")
-            if gadm_ok:
+            if gadm_ok and GADM_PATH:
                 df = aplicar_bloque9(df, GADM_PATH, usar_nominatim=True)
 
             progress.progress(90, text="Generando reporte...")
