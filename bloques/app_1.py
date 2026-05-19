@@ -206,10 +206,11 @@ if "df_resultado" not in st.session_state:
 if ejecutar and file_180 and file_84:
     with st.spinner("Procesando registros…"):
         try:
-            from verificador_georef_completo import (
+            from verificador_georef_completo_6 import (
                 aplicar_bloque1, aplicar_bloque3, aplicar_bloque5,
                 aplicar_bloque6, aplicar_bloque7, aplicar_bloque8,
                 aplicar_bloque9, aplicar_bloque10,
+                calcular_incertidumbre_total,
             )
 
             with open("/tmp/base_180.xlsx", "wb") as f: f.write(file_180.read())
@@ -248,6 +249,28 @@ if ejecutar and file_180 and file_84:
             prog.progress(70, text="Asignando centroides…")
             if gadm_ok and GADM_PATH:
                 df = aplicar_bloque9(df, GADM_PATH, usar_nominatim=True)
+
+            prog.progress(82, text="Calculando incertidumbre…")
+            try:
+                import geopandas as gpd
+                import unicodedata as _ud
+                gdf_inc = gpd.read_file(GADM_PATH)
+                gdf_inc["muni_norm"] = gdf_inc["NAME_2"].apply(
+                    lambda x: "".join(
+                        c for c in _ud.normalize("NFD", str(x).strip().lower())
+                        if _ud.category(c) != "Mn"
+                    )
+                )
+                df["Incertidumbre de coordenadas (m)"] = df.apply(
+                    lambda row: calcular_incertidumbre_total(row, gdf_inc),
+                    axis=1
+                )
+            except Exception as _e:
+                # Sin GADM disponible: calcular sin extensión de municipio
+                df["Incertidumbre de coordenadas (m)"] = df.apply(
+                    lambda row: calcular_incertidumbre_total(row, None),
+                    axis=1
+                )
 
             prog.progress(90, text="Generando reporte Excel…")
             st.session_state.excel_bytes = aplicar_bloque10(df, idioma=None)
@@ -418,7 +441,11 @@ else:
                 nivel_fin = row.get("Nivel_final",   row.get("Nivel de calidad final",   "—"))
                 muni_det  = str(row.get("municipio_detectado", "—"))
                 depto_det = str(row.get("depto_detectado",     "—"))
-                incert    = str(row.get("Incertidumbre calculada (m)", row.get("coordinateUncertaintyInMeters", "—")))
+                incert    = str(row.get("Incertidumbre de coordenadas (m)", row.get("coordinateUncertaintyInMeters", "—")))
+                elev      = str(row.get("Elevación mínima (msnm)", row.get("minimumElevationInMeters", "—")))
+                elev_api  = str(row.get("elevacion_api", "—"))
+                elev_est  = str(row.get("elevacion_estado", ""))
+                elev_nota = str(row.get("elevacion_nota", ""))
                 fecha     = str(row.get("Fecha",     row.get("eventDate", "—")))
                 colector  = str(row.get("Colector",  row.get("recordedBy", "—")))
                 origen    = str(row.get("Origen",    "—"))
@@ -449,6 +476,8 @@ else:
                     <div><b>Coordenadas:</b> {lat:.5f}, {lon:.5f}</div>
                     <div><b>Incertidumbre:</b> {incert} m</div>
                     <div><b>Municipio detectado:</b> {muni_det}, {depto_det}</div>
+                    <div><b>Elevación reportada:</b> {elev} msnm</div>
+                    <div><b>Elevación API:</b> {elev_api} msnm {("⚠" if elev_est=="Revisar" else "✓") if elev_api != "—" else ""}</div>
                   </div>
 
                   <div style="padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;
