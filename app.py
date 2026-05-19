@@ -284,7 +284,7 @@ if ejecutar and file_180 and file_84:
                 fmt   = str(row.get("formato_coordenada", "")).strip()
                 # Detectar formato si está vacío
                 if not fmt and not pd.isna(lat_o):
-                    s = str(lat_o).strip()
+                    s = str(lat_o).strip().replace(".0", "")
                     if "''" in s:           fmt = "GMS"
                     elif "°" in s:          fmt = "GMD"
                     elif _re.match(r"^-?\d{5,10}$", s): fmt = "entero sin punto"
