@@ -7,12 +7,8 @@ Protocolo: Escobar D. et al. (2016) · Instituto Humboldt / ICN-UNAL
 import streamlit as st
 import pandas as pd
 import numpy as np
-import os
-import sys
-import io
-import re
+import os, sys, io
 
-# ─── Configuración de página ──────────────────────────────────
 st.set_page_config(
     page_title="Verificador de Georreferenciación · SiB Colombia",
     page_icon="🌿",
@@ -20,139 +16,118 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ─── CSS: modo oscuro/claro automático + diseño limpio ────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
 
-/* Variables de color — se adaptan al tema del sistema */
 :root {
-    --c-primary:   #1B4332;
-    --c-accent:    #40916C;
-    --c-light:     #D8F3DC;
-    --c-warn:      #F4A261;
-    --c-error:     #E63946;
-    --c-text:      #1A1A2E;
-    --c-muted:     #6B7280;
-    --c-surface:   #F8FAF9;
-    --c-border:    #E2E8E4;
-    --radius:      10px;
-    --font:        'DM Sans', sans-serif;
-    --font-mono:   'DM Mono', monospace;
+  --ink:        #0D1F0F;
+  --ink-2:      #2C3E2E;
+  --ink-3:      #5A6B5C;
+  --moss:       #2D5016;
+  --fern:       #4A7C2F;
+  --sage:       #8FAF72;
+  --mist:       #EFF5E8;
+  --paper:      #F9FAF7;
+  --white:      #FFFFFF;
+  --gold:       #C8953A;
+  --warn:       #D97706;
+  --danger:     #C0392B;
+  --border:     #D4E0C8;
+  --border-2:   #E8F0E1;
+  --r:          8px;
+  --r-lg:       14px;
+  --mono:       'DM Mono', monospace;
+  --sans:       'DM Sans', sans-serif;
+  --serif:      'Fraunces', Georgia, serif;
+  --shadow:     0 1px 3px rgba(13,31,15,.08), 0 4px 16px rgba(13,31,15,.04);
+  --shadow-lg:  0 8px 32px rgba(13,31,15,.10);
 }
 
 @media (prefers-color-scheme: dark) {
-    :root {
-        --c-primary:   #74C69D;
-        --c-accent:    #52B788;
-        --c-light:     #1B4332;
-        --c-warn:      #F4A261;
-        --c-error:     #FF6B6B;
-        --c-text:      #E8F5E9;
-        --c-muted:     #9CA3AF;
-        --c-surface:   #1A1F1C;
-        --c-border:    #2D3B35;
-    }
+  :root {
+    --ink:      #E8F5E0;
+    --ink-2:    #B8D4A8;
+    --ink-3:    #7A9E6C;
+    --moss:     #74C69D;
+    --fern:     #52B788;
+    --sage:     #3A7D50;
+    --mist:     #132018;
+    --paper:    #0D1A0F;
+    --white:    #1A2C1C;
+    --gold:     #F0B429;
+    --warn:     #FBB034;
+    --danger:   #E74C3C;
+    --border:   #2A4030;
+    --border-2: #1E3025;
+    --shadow:   0 1px 3px rgba(0,0,0,.3);
+    --shadow-lg:0 8px 32px rgba(0,0,0,.4);
+  }
 }
 
-html, body, [class*="css"] {
-    font-family: var(--font) !important;
-}
+html, body, [class*="css"] { font-family: var(--sans) !important; color: var(--ink) !important; }
 
-/* Sidebar */
-section[data-testid="stSidebar"] {
-    background: var(--c-surface);
-    border-right: 1px solid var(--c-border);
-}
+section[data-testid="stSidebar"] { background: var(--paper) !important; border-right: 1px solid var(--border) !important; }
+section[data-testid="stSidebar"] > div { padding: 28px 20px 20px !important; }
+.main .block-container { padding: 40px 48px 48px !important; max-width: 1280px !important; }
 
-/* Cards de métricas */
-.metric-card {
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: var(--radius);
-    padding: 16px 18px;
-    text-align: center;
-}
-.metric-num {
-    font-size: 28px;
-    font-weight: 600;
-    color: var(--c-primary);
-    line-height: 1.1;
-}
-.metric-label {
-    font-size: 11px;
-    color: var(--c-muted);
-    margin-top: 3px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
+.logo-wrap { margin-bottom: 24px; }
+.logo-name { font-family: var(--serif) !important; font-size: 21px; font-weight: 500; color: var(--moss) !important; line-height: 1.2; letter-spacing: -.01em; }
+.logo-sub  { font-size: 16px; font-weight: 400; color: var(--ink-3) !important; text-transform: uppercase; letter-spacing: .12em; margin-top: 3px; }
 
-/* Badges de resultado */
-.badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 500;
-}
-.badge-ok      { background: #D8F3DC; color: #1B4332; }
-.badge-warn    { background: #FFF3CD; color: #7C5A00; }
-.badge-error   { background: #FFE5E5; color: #8B0000; }
-.badge-nd      { background: #F1F1F1; color: #555; }
+.upload-label { font-size: 16px; font-weight: 500; color: var(--ink-3) !important; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 5px; margin-top: 14px; display: block; }
 
-/* Título de sección */
-.section-title {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--c-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin: 24px 0 12px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--c-border);
-}
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 15px; font-weight: 500; margin-bottom: 4px; width: 100%; }
+.pill-ok   { background: #E8F5E0; color: #2D5016; }
+.pill-warn { background: #FEF3C7; color: #7C5A00; }
+.pill-err  { background: #FEE2E2; color: #7F1D1D; }
+.pill-nd   { background: var(--mist); color: var(--ink-3); }
 
-/* Upload zone */
-.upload-label {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--c-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 4px;
-}
+.copy { font-size: 15px; color: var(--ink-3) !important; line-height: 1.7; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-2); }
 
-/* Copyright */
-.copyright {
-    font-size: 10px;
-    color: var(--c-muted);
-    line-height: 1.6;
-    margin-top: 24px;
-    padding-top: 12px;
-    border-top: 1px solid var(--c-border);
-}
+.hero { margin-bottom: 40px; }
+.hero-eyebrow { font-size: 16px; font-weight: 500; color: var(--fern) !important; text-transform: uppercase; letter-spacing: .16em; margin-bottom: 10px; }
+.hero-title { font-family: var(--serif) !important; font-size: clamp(34px, 5vw, 52px); font-weight: 300; color: var(--ink) !important; line-height: 1.15; letter-spacing: -.02em; margin-bottom: 14px; }
+.hero-title em { font-style: italic; color: var(--fern) !important; }
+.hero-desc { font-size: 16px; color: var(--ink-3) !important; max-width: 560px; line-height: 1.65; }
 
-/* Progress step */
-.step-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 6px;
-    font-size: 13px;
-}
-.step-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-.dot-ok   { background: #40916C; }
-.dot-pend { background: #D1D5DB; }
-.dot-run  { background: #F4A261; }
+.metric-grid { display: flex; gap: 12px; margin: 28px 0 36px; }
+.metric-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 18px 20px; flex: 1; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+.metric-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--fern), var(--sage)); }
+.metric-num { font-family: var(--serif) !important; font-size: 36px; font-weight: 400; color: var(--moss) !important; line-height: 1; margin-bottom: 5px; }
+.metric-label { font-size: 16px; font-weight: 500; color: var(--ink-3) !important; text-transform: uppercase; letter-spacing: .1em; }
+
+.steps { margin: 24px 0; }
+.step-item { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 12px; }
+.step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--mist); border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 500; color: var(--fern) !important; flex-shrink: 0; margin-top: 1px; }
+.step-text { font-size: 15px; color: var(--ink-2) !important; line-height: 1.5; padding-top: 2px; }
+
+.section-head { display: flex; align-items: center; gap: 10px; margin: 32px 0 16px; }
+.section-line { flex: 1; height: 1px; background: var(--border-2); }
+.section-label { font-size: 16px; font-weight: 500; color: var(--ink-3) !important; text-transform: uppercase; letter-spacing: .12em; white-space: nowrap; }
+
+.result-bar { display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap; }
+.result-chip { display: flex; align-items: center; gap: 7px; background: var(--white); border: 1px solid var(--border); border-radius: var(--r); padding: 10px 16px; box-shadow: var(--shadow); }
+.chip-dot { width: 8px; height: 8px; border-radius: 50%; }
+.chip-num { font-family: var(--serif) !important; font-size: 23px; font-weight: 400; color: var(--ink) !important; line-height: 1; }
+.chip-label { font-size: 16px; color: var(--ink-3) !important; text-transform: uppercase; letter-spacing: .08em; }
+
+button[data-baseweb="tab"] { font-family: var(--sans) !important; font-size: 16px !important; font-weight: 500 !important; letter-spacing: .03em !important; text-transform: uppercase !important; }
+
+.info-box { background: var(--mist); border: 1px solid var(--border); border-left: 3px solid var(--fern); border-radius: var(--r); padding: 14px 16px; font-size: 15px; color: var(--ink-2) !important; line-height: 1.6; }
+
+.dl-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 28px 32px; box-shadow: var(--shadow-lg); margin-bottom: 24px; }
+.dl-title { font-family: var(--serif) !important; font-size: 23px; font-weight: 400; color: var(--ink) !important; margin-bottom: 8px; }
+.dl-desc { font-size: 15px; color: var(--ink-3) !important; line-height: 1.6; margin-bottom: 20px; }
+.dl-list { font-size: 16px; color: var(--ink-2) !important; line-height: 1.8; padding-left: 0; list-style: none; }
+.dl-list li::before { content: "→  "; color: var(--fern); font-weight: 500; }
+
+.reference { font-size: 15px; color: var(--ink-3) !important; line-height: 1.7; padding: 16px; background: var(--mist); border-radius: var(--r); border: 1px solid var(--border-2); font-style: italic; }
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Rutas ────────────────────────────────────────────────────
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# ── Rutas ──────────────────────────────────────────
+BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 sys.path.insert(0, os.path.join(BASE_DIR, "bloques"))
 
@@ -161,272 +136,266 @@ _posibles_gadm = [
     "/mount/src/verificador-georef-sib/datos/gadm41_COL_2.json",
     "datos/gadm41_COL_2.json",
 ]
-GADM_PATH = next((p for p in _posibles_gadm if os.path.exists(p)), _posibles_gadm[0])
+GADM_PATH = next((p for p in _posibles_gadm if os.path.exists(p)), None)
 
-# ─── Sidebar ──────────────────────────────────────────────────
+# ── Helper: normalizar valor de validación ─────────
+def _val_color(val: str) -> str:
+    """Devuelve color hex según el texto de validación (emojis O texto corchete)."""
+    v = str(val).strip()
+    if "OK" in v or "✅" in v:      return "#4A7C2F"
+    if "Revisar" in v or "⚠" in v:  return "#D97706"
+    if "Error" in v or "❌" in v:   return "#C0392B"
+    return "#9CA3AF"
+
+def _val_desc(val: str) -> str:
+    v = str(val).strip()
+    if "OK" in v or "✅" in v:      return "Dentro del municipio reportado"
+    if "Revisar" in v or "⚠" in v:  return "Municipio vecino — revisar"
+    if "Error" in v or "❌" in v:   return "Fuera de Colombia o municipio incorrecto"
+    return "Sin validación espacial"
+
+# ── Sidebar ────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 🌿 Verificador de Georreferenciación")
-    st.markdown("**SiB Colombia · Instituto Humboldt**")
-    st.divider()
-
-    st.markdown('<div class="upload-label">Base con coordenadas (.xlsx)</div>',
-                unsafe_allow_html=True)
-    file_180 = st.file_uploader("", type=["xlsx","xls"],
-                                 key="file_180", label_visibility="collapsed")
-
-    st.markdown('<div class="upload-label" style="margin-top:12px">Base sin coordenadas (.xlsx)</div>',
-                unsafe_allow_html=True)
-    file_84 = st.file_uploader("", type=["xlsx","xls"],
-                                key="file_84", label_visibility="collapsed")
-
-    st.divider()
-
-    gadm_ok = os.path.exists(GADM_PATH)
-    if gadm_ok:
-        st.success("✓ Capa GADM Colombia cargada", icon="🗺️")
-    else:
-        st.warning("Capa GADM no encontrada en datos/", icon="⚠️")
-        st.caption("Sube gadm41_COL_2.json a la carpeta datos/ del repositorio.")
-
-    ejecutar = st.button("▶ Ejecutar análisis",
-                         use_container_width=True,
-                         type="primary",
-                         disabled=(file_180 is None or file_84 is None))
-
     st.markdown("""
-    <div class="copyright">
-        © 2026 Ximena Bedoya Araque<br>
-        Estudiante de Ecología · Universidad CES<br>
-        Pasantía en Colecciones Biológicas CBUCES<br>
-        Medellín, Colombia<br><br>
-        Basado en: Escobar D. et al. (2016)<br>
-        Instituto Humboldt – ICN/UNAL<br>
-        Licencia CC BY-NC 4.0
+    <div class="logo-wrap">
+      <div class="logo-name">Verificador de<br>Georreferenciación</div>
+      <div class="logo-sub">SiB Colombia · Instituto Humboldt</div>
     </div>
     """, unsafe_allow_html=True)
 
-# ─── Estado de sesión ─────────────────────────────────────────
-if "df_resultado" not in st.session_state:
-    st.session_state.df_resultado = None
-if "procesado" not in st.session_state:
-    st.session_state.procesado = False
+    st.markdown('<span class="upload-label">Base con coordenadas (.xlsx)</span>', unsafe_allow_html=True)
+    file_180 = st.file_uploader("", type=["xlsx","xls"], key="file_180", label_visibility="collapsed")
 
-# ─── Procesar cuando se presiona el botón ─────────────────────
-if ejecutar and file_180 is not None and file_84 is not None:
-    with st.spinner("Procesando registros..."):
+    st.markdown('<span class="upload-label">Base sin coordenadas (.xlsx)</span>', unsafe_allow_html=True)
+    file_84  = st.file_uploader("", type=["xlsx","xls"], key="file_84",  label_visibility="collapsed")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    gadm_ok = GADM_PATH is not None and os.path.exists(GADM_PATH)
+    if gadm_ok:
+        st.markdown('<div class="pill pill-ok">✓ &nbsp;Capa GADM Colombia activa</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="pill pill-warn">⚠ &nbsp;GADM no encontrado — validación espacial limitada</div>', unsafe_allow_html=True)
+
+    ejecutar = st.button(
+        "▶  Ejecutar análisis",
+        use_container_width=True,
+        type="primary",
+        disabled=(file_180 is None or file_84 is None),
+    )
+
+    st.markdown("""
+    <div class="copy">
+      © 2026 Ximena Bedoya Araque<br>
+      Estudiante de Ecología · Universidad CES<br>
+      Pasantía en Colecciones Biológicas CBUCES<br>
+      Medellín, Colombia<br><br>
+      Basado en Escobar D. et al. (2016)<br>
+      Instituto Humboldt – ICN/UNAL<br>
+      Licencia CC BY-NC 4.0
+    </div>
+    """, unsafe_allow_html=True)
+
+# ── Estado de sesión ───────────────────────────────
+if "df_resultado" not in st.session_state:
+    st.session_state.df_resultado  = None
+    st.session_state.excel_bytes   = None
+    st.session_state.procesado     = False
+
+# ── Procesamiento ──────────────────────────────────
+if ejecutar and file_180 and file_84:
+    with st.spinner("Procesando registros…"):
         try:
             from verificador_georef_completo import (
                 aplicar_bloque1, aplicar_bloque3, aplicar_bloque5,
                 aplicar_bloque6, aplicar_bloque7, aplicar_bloque8,
-                aplicar_bloque9, aplicar_bloque10
+                aplicar_bloque9, aplicar_bloque10,
             )
 
-            # Guardar archivos temporalmente
-            with open("/tmp/base_180.xlsx", "wb") as f:
-                f.write(file_180.read())
-            with open("/tmp/base_84.xlsx", "wb") as f:
-                f.write(file_84.read())
+            with open("/tmp/base_180.xlsx", "wb") as f: f.write(file_180.read())
+            with open("/tmp/base_84.xlsx",  "wb") as f: f.write(file_84.read())
 
-            # Bloque 1 — leer, unir, limpiar coordenadas
-            progress = st.progress(0, text="Estandarizando coordenadas...")
-            df = aplicar_bloque1("/tmp/base_84.xlsx", "/tmp/base_180.xlsx")
+            prog = st.progress(0,  text="Estandarizando coordenadas…")
+            df   = aplicar_bloque1("/tmp/base_84.xlsx", "/tmp/base_180.xlsx")
 
-            # Bloque 5 — campos obligatorios DwC
-            progress.progress(15, text="Verificando campos DwC...")
+            prog.progress(20, text="Verificando campos Darwin Core…")
             df, _ = aplicar_bloque5(df)
 
-            # Bloque 6 — verificación de localidad
-            progress.progress(28, text="Verificando localidades...")
+            prog.progress(28, text="Comparando localidad original vs estandarizada…")
             df = aplicar_bloque6(df)
 
-            # Bloque 7 — clasificación niveles
-            progress.progress(40, text="Clasificando niveles de calidad...")
+            prog.progress(35, text="Clasificando niveles de calidad…")
             df = aplicar_bloque7(df)
 
-            # Bloque 8 — validación espacial (requiere GADM)
-            progress.progress(55, text="Validando coordenadas contra municipios...")
-            if gadm_ok:
+            prog.progress(50, text="Validando coordenadas contra municipios GADM…")
+            if gadm_ok and GADM_PATH:
                 df = aplicar_bloque8(df, GADM_PATH)
             else:
                 df["Nivel_final"]         = df["Nivel_inicial"].copy()
                 df["lat_wgs84"]           = df["lat_decimal_calculada"]
                 df["lon_wgs84"]           = df["lon_decimal_calculada"]
                 df["validacion_b2"]       = df["conversion_estado"].map(
-                    {"OK":"OK","Revisar":"Revisar","Error":"Error","sin coordenadas":""}
+                    {"OK":"✅ OK","Revisar":"⚠ Revisar",
+                     "Error":"❌ Error","sin coordenadas":""}
                 ).fillna("")
                 df["municipio_detectado"] = ""
                 df["depto_detectado"]     = ""
                 df["mensaje_b2"]          = ""
 
-            # Bloque 3 — elevación vía API (depende de validacion_b2 del B8)
-            progress.progress(68, text="Consultando elevaciones (API)...")
+            prog.progress(60, text="Verificando elevación…")
             df = aplicar_bloque3(df)
 
-            # Bloque 9 — centroides para sin coordenadas
-            progress.progress(82, text="Asignando centroides...")
-            if gadm_ok:
+            prog.progress(70, text="Asignando centroides…")
+            if gadm_ok and GADM_PATH:
                 df = aplicar_bloque9(df, GADM_PATH, usar_nominatim=True)
 
-            progress.progress(90, text="Generando reporte...")
+            prog.progress(90, text="Generando reporte Excel…")
+            st.session_state.excel_bytes = aplicar_bloque10(df, idioma=None)
             st.session_state.df_resultado = df
-            st.session_state.excel_bytes  = aplicar_bloque10(df, idioma=None)
             st.session_state.procesado    = True
-            progress.progress(100, text="¡Listo!")
+            prog.progress(100, text="¡Listo!")
 
         except Exception as e:
             st.error(f"Error durante el procesamiento: {e}")
             import traceback
             st.code(traceback.format_exc())
 
-# ─── Pantalla de bienvenida ───────────────────────────────────
+# ── Pantalla de bienvenida ─────────────────────────
 if not st.session_state.procesado:
-    st.markdown("# Verificador de Georreferenciación")
-    st.markdown(
-        "Herramienta para la validación y georreferenciación de localidades "
-        "en colecciones biológicas, basada en el protocolo del **Instituto Humboldt** "
-        "e **Instituto de Ciencias Naturales (UNAL)**."
-    )
+    st.markdown("""
+    <div class="hero">
+      <div class="hero-eyebrow">Protocolo SiB Colombia · Instituto Humboldt</div>
+      <div class="hero-title">Verificador de<br><em>Georreferenciación</em></div>
+      <div class="hero-desc">
+        Herramienta para la validación y georreferenciación de localidades
+        en colecciones biológicas, basada en el protocolo del Instituto de
+        Investigación de Recursos Biológicos Alexander von Humboldt e
+        Instituto de Ciencias Naturales (UNAL).
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown("""
-        <div class="metric-card">
-            <div class="metric-num">10</div>
-            <div class="metric-label">Procesos automatizados</div>
-        </div>""", unsafe_allow_html=True)
-    with col2:
-        st.markdown("""
-        <div class="metric-card">
-            <div class="metric-num">7</div>
-            <div class="metric-label">Niveles de calidad</div>
-        </div>""", unsafe_allow_html=True)
-    with col3:
-        st.markdown("""
-        <div class="metric-card">
-            <div class="metric-num">50k+</div>
-            <div class="metric-label">Registros soportados</div>
-        </div>""", unsafe_allow_html=True)
+    st.markdown("""
+    <div class="metric-grid">
+      <div class="metric-card"><div class="metric-num">10</div><div class="metric-label">Procesos automatizados</div></div>
+      <div class="metric-card"><div class="metric-num">7</div><div class="metric-label">Niveles de calidad</div></div>
+      <div class="metric-card"><div class="metric-num">50k+</div><div class="metric-label">Registros soportados</div></div>
+      <div class="metric-card"><div class="metric-num">264</div><div class="metric-label">Registros de prueba</div></div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown('<div class="section-title">Cómo usar</div>', unsafe_allow_html=True)
-    pasos = [
-        ("Sube tu base con coordenadas (.xlsx)", True),
-        ("Sube tu base sin coordenadas (.xlsx)", True),
-        ("Presiona ▶ Ejecutar análisis", False),
-        ("Revisa los resultados en el visor de puntos", False),
-        ("Descarga el reporte en Excel", False),
-    ]
-    for texto, _ in pasos:
-        st.markdown(f"→ {texto}")
+    st.markdown("""
+    <div class="section-head">
+      <div class="section-label">Cómo usar</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="steps">
+      <div class="step-item"><div class="step-num">1</div><div class="step-text">Sube tu base <b>con coordenadas</b> (.xlsx) desde el panel izquierdo</div></div>
+      <div class="step-item"><div class="step-num">2</div><div class="step-text">Sube tu base <b>sin coordenadas</b> (.xlsx)</div></div>
+      <div class="step-item"><div class="step-num">3</div><div class="step-text">Presiona <b>▶ Ejecutar análisis</b> y espera el procesamiento</div></div>
+      <div class="step-item"><div class="step-num">4</div><div class="step-text">Revisa los resultados en el <b>visor de puntos</b> y la tabla</div></div>
+      <div class="step-item"><div class="step-num">5</div><div class="step-text">Descarga el <b>reporte Excel</b> con colores, niveles y comentarios</div></div>
+    </div>
+    <div class="info-box">
+      💡 Ambas bases deben venir estandarizadas del proceso previo
+      (Verificador de Localidades — Taller 1), con la columna
+      <b>*Localidad estandarizada</b> ya corregida.
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.info(
-        "💡 Ambas bases deben venir estandarizadas del proceso previo "
-        "(Taller 1 — Verificador de Localidades), con la columna "
-        "**\\*Localidad estandarizada** ya corregida.",
-        icon="ℹ️"
-    )
-
-# ─── Resultados ───────────────────────────────────────────────
+# ── Resultados ─────────────────────────────────────
 else:
-    df = st.session_state.df_resultado
+    df    = st.session_state.df_resultado
+    total = len(df)
+    n1    = int((df["Nivel_final"] == 1).sum())
+    n2_6  = int(df["Nivel_final"].isin([2,3,4,5,6]).sum())
+    n7    = int((df["Nivel_final"] == 7).sum())
 
-    # Métricas resumen
-    total     = len(df)
-    n1        = int((df["Nivel_final"] == 1).sum())
-    n2_6      = int(df["Nivel_final"].isin([2,3,4,5,6]).sum())
-    n7        = int((df["Nivel_final"] == 7).sum())
+    col_val = "validacion_b2" if "validacion_b2" in df.columns else ""
 
-    if "validacion_b2" in df.columns:
-        col_val_m = df["validacion_b2"].astype(str)
-        val_ok  = int(col_val_m.str.contains(r"OK|✅",      na=False, regex=True).sum())
-        val_rev = int(col_val_m.str.contains(r"Revisar|⚠",  na=False, regex=True).sum())
-        val_err = int(col_val_m.str.contains(r"Error|❌",   na=False, regex=True).sum())
+    # ── FIX: contadores con contains para soportar emojis Y texto corchete ──
+    if col_val:
+        val_ok  = int(df[col_val].str.contains("OK|✅",     na=False).sum())
+        val_rev = int(df[col_val].str.contains("Revisar|⚠", na=False).sum())
+        val_err = int(df[col_val].str.contains("Error|❌",  na=False).sum())
     else:
         val_ok = val_rev = val_err = 0
 
-    c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
-    metricas = [
-        (c1, total,  "Total registros"),
-        (c2, n1,     "Con coordenadas"),
-        (c3, n2_6,   "Georreferenciados"),
-        (c4, n7,     "Nivel 7"),
-        (c5, val_ok, "[✓] OK"),
-        (c6, val_rev,"[!] Revisar"),
-        (c7, val_err,"[X] Error"),
-    ]
-    for col, num, label in metricas:
-        with col:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-num">{num}</div>
-                <div class="metric-label">{label}</div>
-            </div>""", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="result-bar">
+      <div class="result-chip">
+        <div class="chip-dot" style="background:#4A7C2F"></div>
+        <div><div class="chip-num">{total}</div><div class="chip-label">Total</div></div>
+      </div>
+      <div class="result-chip">
+        <div class="chip-dot" style="background:#4A7C2F"></div>
+        <div><div class="chip-num">{n1}</div><div class="chip-label">Con coordenadas</div></div>
+      </div>
+      <div class="result-chip">
+        <div class="chip-dot" style="background:#8FAF72"></div>
+        <div><div class="chip-num">{n2_6}</div><div class="chip-label">Georreferenciados</div></div>
+      </div>
+      <div class="result-chip">
+        <div class="chip-dot" style="background:#999"></div>
+        <div><div class="chip-num">{n7}</div><div class="chip-label">Nivel 7</div></div>
+      </div>
+      <div class="result-chip">
+        <div class="chip-dot" style="background:#4A7C2F"></div>
+        <div><div class="chip-num">{val_ok}</div><div class="chip-label">✅ OK</div></div>
+      </div>
+      <div class="result-chip">
+        <div class="chip-dot" style="background:#D97706"></div>
+        <div><div class="chip-num">{val_rev}</div><div class="chip-label">⚠ Revisar</div></div>
+      </div>
+      <div class="result-chip">
+        <div class="chip-dot" style="background:#C0392B"></div>
+        <div><div class="chip-num">{val_err}</div><div class="chip-label">❌ Error</div></div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown("")
+    tab1, tab2, tab3 = st.tabs(["🗺️  Visor de puntos", "📋  Tabla de resultados", "⬇️  Descargar reporte"])
 
-    # Pestañas
-    tab1, tab2, tab3 = st.tabs(["🗺️ Visor de puntos", "📋 Tabla de resultados", "⬇️ Descargar reporte"])
-
-    # ── Pestaña 1: Visor de puntos ────────────────────────────
+    # ── Pestaña 1: Mapa ───────────────────────────
     with tab1:
         try:
             import folium
             from streamlit_folium import st_folium
             from folium.plugins import MarkerCluster
 
-            # Filtros
-            col_f1, col_f2 = st.columns([2, 2])
-            with col_f1:
-                filtro_resultado = st.selectbox(
-                    "Filtrar por resultado",
-                    ["Todos", "[✓] OK", "[!] Revisar", "[X] Error", "Sin validación"]
-                )
-            with col_f2:
+            c1, c2 = st.columns([2,2])
+            with c1:
+                filtro_res = st.selectbox("Resultado", ["Todos","✅ OK","⚠ Revisar","❌ Error"])
+            with c2:
                 deptos = ["Todos"] + sorted(df["*Departamento"].dropna().unique().tolist()) \
                     if "*Departamento" in df.columns else ["Todos"]
-                filtro_depto = st.selectbox("Filtrar por departamento", deptos)
+                filtro_dep = st.selectbox("Departamento", deptos)
 
-            # Aplicar filtros
-            df_mapa = df.copy()
-            if filtro_resultado != "Todos" and "validacion_b2" in df_mapa.columns:
-                mapa_pat = {
-                    "[✓] OK":        r"OK|✅",
-                    "[!] Revisar":   r"Revisar|⚠",
-                    "[X] Error":     r"Error|❌",
-                    "Sin validación": r"^$|^nan$",
-                }
-                pat = mapa_pat.get(filtro_resultado)
-                if pat:
-                    df_mapa = df_mapa[df_mapa["validacion_b2"].astype(str).str.contains(pat, na=False, regex=True)]
-            if filtro_depto != "Todos" and "*Departamento" in df_mapa.columns:
-                df_mapa = df_mapa[df_mapa["*Departamento"] == filtro_depto]
+            df_m = df.copy()
+            # filtro por resultado: usar contains para soportar ambos formatos
+            if filtro_res != "Todos" and col_val:
+                kw = {"✅ OK":"OK","⚠ Revisar":"Revisar","❌ Error":"Error"}.get(filtro_res,"")
+                if kw:
+                    df_m = df_m[df_m[col_val].str.contains(kw, na=False)]
+            if filtro_dep != "Todos" and "*Departamento" in df_m.columns:
+                df_m = df_m[df_m["*Departamento"] == filtro_dep]
 
-            # Construir mapa
-            m = folium.Map(
-                location=[5.5, -74.5],
-                zoom_start=6,
-                tiles="OpenStreetMap",
-                prefer_canvas=True,
-            )
-            # Capa satelital opcional
+            m = folium.Map(location=[5.5,-74.5], zoom_start=6,
+                           tiles="CartoDB Positron", prefer_canvas=True)
             folium.TileLayer(
-                tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                attr="Esri",
-                name="Satelital",
-                overlay=False,
-                control=True,
+                "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                attr="Esri", name="Satelital", overlay=False, control=True
             ).add_to(m)
 
-            # Usar MarkerCluster para muchos puntos
             cluster = MarkerCluster(
-                options={"maxClusterRadius": 40, "disableClusteringAtZoom": 12}
+                options={"maxClusterRadius":40,"disableClusteringAtZoom":12}
             ).add_to(m)
 
-            col_lat = "lat_wgs84" if "lat_wgs84" in df_mapa.columns else "lat_decimal_calculada"
-            col_lon = "lon_wgs84" if "lon_wgs84" in df_mapa.columns else "lon_decimal_calculada"
-            col_val = "validacion_b2"
+            col_lat = "lat_wgs84" if "lat_wgs84" in df_m.columns else "lat_decimal_calculada"
+            col_lon = "lon_wgs84" if "lon_wgs84" in df_m.columns else "lon_decimal_calculada"
 
-            puntos_agregados = 0
-            for _, row in df_mapa.iterrows():
+            n_puntos = 0
+            for _, row in df_m.iterrows():
                 lat = row.get(col_lat)
                 lon = row.get(col_lon)
                 if pd.isna(lat) or pd.isna(lon): continue
@@ -435,119 +404,143 @@ else:
                     if not (-5 <= lat <= 16 and -82 <= lon <= -60): continue
                 except: continue
 
-                val      = str(row.get(col_val,"")).strip()
-                if re.search(r"OK|✅", val):       color = "green"
-                elif re.search(r"Revisar|⚠", val): color = "orange"
-                elif re.search(r"Error|❌", val):  color = "red"
-                else:                               color = "gray"
-                especie  = str(row.get("Nombre científico", row.get("scientificName","—")))
-                municipio= str(row.get("*Municipio", row.get("county","—")))
-                depto    = str(row.get("*Departamento", row.get("stateProvince","—")))
-                nivel    = row.get("Nivel_final", "—")
-                catalogo = str(row.get("Número de catálogo", row.get("catalogNumber","—")))
-                muni_det = str(row.get("municipio_detectado","—"))
-                val_txt  = {"OK":"✓ Dentro del municipio","Revisar":"⚠ Municipio vecino","Error":"✗ Fuera de Colombia"}.get(val,"— Sin validación")
+                val      = str(row.get(col_val, "")).strip() if col_val else ""
+                color    = _val_color(val)
+                vdesc    = _val_desc(val)
+
+                # ── Datos del popup (con fallbacks robustos) ──
+                catalogo  = str(row.get("Número de catálogo",    row.get("catalogNumber",    "—")))
+                especie   = str(row.get("Nombre científico",     row.get("scientificName",   "—")))
+                municipio = str(row.get("*Municipio",            row.get("county",           "—")))
+                depto     = str(row.get("*Departamento",         row.get("stateProvince",    "—")))
+                localidad = str(row.get("*Localidad estandarizada", row.get("locality",     "—")))
+                nivel_ini = row.get("Nivel_inicial", row.get("Nivel de calidad inicial", "—"))
+                nivel_fin = row.get("Nivel_final",   row.get("Nivel de calidad final",   "—"))
+                muni_det  = str(row.get("municipio_detectado", "—"))
+                depto_det = str(row.get("depto_detectado",     "—"))
+                incert    = str(row.get("Incertidumbre calculada (m)", row.get("coordinateUncertaintyInMeters", "—")))
+                fecha     = str(row.get("Fecha",     row.get("eventDate", "—")))
+                colector  = str(row.get("Colector",  row.get("recordedBy", "—")))
+                origen    = str(row.get("Origen",    "—"))
 
                 popup_html = f"""
-                <div style="font-family:DM Sans,sans-serif;min-width:220px;font-size:13px">
-                    <b style="font-size:14px">{catalogo}</b><br>
-                    <i style="color:#555">{especie}</i>
-                    <hr style="margin:6px 0;border:none;border-top:1px solid #eee">
-                    <b>Municipio reportado:</b> {municipio}, {depto}<br>
-                    <b>Municipio detectado:</b> {muni_det}<br>
-                    <b>Lat:</b> {lat:.6f} · <b>Lon:</b> {lon:.6f}<br>
-                    <b>Nivel:</b> {nivel}<br>
-                    <b>Validación:</b> {val_txt}
-                </div>
-                """
+                <div style="font-family:'DM Sans',sans-serif;min-width:240px;max-width:300px;font-size:13px;padding:6px 4px">
+                  <div style="font-weight:700;font-size:14px;color:#1a1a1a;margin-bottom:2px">{catalogo}</div>
+                  <div style="font-style:italic;color:#555;margin-bottom:10px;font-size:13px">{especie}</div>
+
+                  <div style="background:#f0f4ec;border-radius:6px;padding:8px 10px;margin-bottom:8px">
+                    <div style="font-weight:600;font-size:11px;color:#4A7C2F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Localidad</div>
+                    <div style="color:#333;font-size:12px">{localidad}</div>
+                    <div style="margin-top:4px;color:#666;font-size:12px">{municipio}, {depto}</div>
+                  </div>
+
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+                    <div style="background:#fafafa;border:1px solid #e8e8e8;border-radius:4px;padding:6px 8px">
+                      <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em">Nivel inicial</div>
+                      <div style="font-size:16px;font-weight:600;color:#2D5016">{nivel_ini}</div>
+                    </div>
+                    <div style="background:#fafafa;border:1px solid #e8e8e8;border-radius:4px;padding:6px 8px">
+                      <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em">Nivel final</div>
+                      <div style="font-size:16px;font-weight:600;color:#2D5016">{nivel_fin}</div>
+                    </div>
+                  </div>
+
+                  <div style="background:#fafafa;border:1px solid #e8e8e8;border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:12px">
+                    <div><b>Coordenadas:</b> {lat:.5f}, {lon:.5f}</div>
+                    <div><b>Incertidumbre:</b> {incert} m</div>
+                    <div><b>Municipio detectado:</b> {muni_det}, {depto_det}</div>
+                  </div>
+
+                  <div style="padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;
+                              background:{'#E8F5E0' if 'OK' in vdesc else '#FEF3C7' if 'vecino' in vdesc else '#FEE2E2'};
+                              color:{'#2D5016' if 'OK' in vdesc else '#7C5A00' if 'vecino' in vdesc else '#7F1D1D'}">
+                    {val} — {vdesc}
+                  </div>
+
+                  <div style="margin-top:8px;font-size:11px;color:#aaa">
+                    {fecha} · {colector} · {origen}
+                  </div>
+                </div>"""
+
                 folium.CircleMarker(
-                    location=[lat, lon],
-                    radius=6,
-                    color="white",
-                    weight=1.5,
-                    fill=True,
-                    fill_color=color,
-                    fill_opacity=0.85,
-                    popup=folium.Popup(popup_html, max_width=280),
-                    tooltip=f"{catalogo} — {especie}",
+                    location=[lat, lon], radius=6,
+                    color="white", weight=1.5,
+                    fill=True, fill_color=color, fill_opacity=0.9,
+                    popup=folium.Popup(popup_html, max_width=320),
+                    tooltip=f"{catalogo} · {especie} · Nivel {nivel_fin}",
                 ).add_to(cluster)
-                puntos_agregados += 1
+                n_puntos += 1
 
             folium.LayerControl().add_to(m)
-
-            st.caption(f"Mostrando {puntos_agregados} puntos con coordenadas")
+            st.caption(f"Mostrando **{n_puntos}** puntos · Verde = OK · Naranja = Revisar · Rojo = Error")
             st_folium(m, width="100%", height=520, returned_objects=[])
 
         except ImportError:
-            st.warning("Instala streamlit-folium para ver el mapa: pip install streamlit-folium")
+            st.warning("Instala streamlit-folium para activar el visor.")
 
-    # ── Pestaña 2: Tabla de resultados ────────────────────────
+    # ── Pestaña 2: Tabla ──────────────────────────
     with tab2:
-        col_res = [
+        cols_ver = [
             "*Municipio","*Departamento","*Localidad estandarizada",
             "Nivel de calidad inicial","Nivel de calidad final",
             "Resultado validación espacial",
             "Latitud georreferenciada","Longitud georreferenciada",
-            "Comentarios de la georreferenciación",
-            "Origen"
+            "Comentarios de la georreferenciación","Origen",
         ]
-        cols_presentes = [c for c in col_res if c in df.columns]
+        cols_ok = [c for c in cols_ver if c in df.columns]
 
-        # Filtro de nivel
-        niveles_disponibles = sorted(df["Nivel_final"].dropna().unique().tolist())
-        filtro_nivel = st.multiselect(
-            "Filtrar por nivel de calidad",
-            options=[f"Nivel {int(n)}" for n in niveles_disponibles],
-            default=[f"Nivel {int(n)}" for n in niveles_disponibles],
+        niveles_disp = sorted(df["Nivel_final"].dropna().unique().tolist())
+        filtro_niv   = st.multiselect(
+            "Filtrar por nivel",
+            [f"Nivel {int(n)}" for n in niveles_disp],
+            default=[f"Nivel {int(n)}" for n in niveles_disp],
         )
-        niveles_sel = [int(x.split()[-1]) for x in filtro_nivel]
-        df_tabla = df[df["Nivel_final"].isin(niveles_sel)][cols_presentes]
+        niveles_sel = [int(x.split()[-1]) for x in filtro_niv]
+        df_t = df[df["Nivel_final"].isin(niveles_sel)][cols_ok] if cols_ok else df[df["Nivel_final"].isin(niveles_sel)]
 
-        st.dataframe(
-            df_tabla,
-            use_container_width=True,
-            height=480,
-            hide_index=True,
-        )
-        st.caption(f"{len(df_tabla)} registros mostrados de {total} totales")
+        st.dataframe(df_t, use_container_width=True, height=500, hide_index=True)
+        st.caption(f"{len(df_t)} de {total} registros")
 
-    # ── Pestaña 3: Descarga ───────────────────────────────────
+    # ── Pestaña 3: Descarga ───────────────────────
     with tab3:
-        st.markdown("### Descarga el reporte completo")
-        st.markdown(
-            "El archivo Excel contiene dos hojas: "
-            "**Resumen** con estadísticas del proceso y "
-            "**Registros** con los 264 registros procesados, "
-            "colores por resultado y comentarios de georreferenciación."
+        st.markdown("""
+        <div class="dl-card">
+          <div class="dl-title">Reporte de georreferenciación</div>
+          <div class="dl-desc">
+            Archivo Excel con dos hojas: <b>Resumen</b> (estadísticas del proceso)
+            y <b>Registros</b> (264 registros con colores, niveles y comentarios
+            según el protocolo SiB Colombia).
+          </div>
+          <ul class="dl-list">
+            <li>Coordenadas corregidas y validadas (Tabla 2 del manual)</li>
+            <li>Nivel de calidad inicial y final (Tabla 9 del manual)</li>
+            <li>Resultado de validación espacial por municipio (sección 3.6.1)</li>
+            <li>Comentarios de georreferenciación por registro (Tabla 13)</li>
+            <li>Campos obligatorios Darwin Core (Tabla 6 y 12)</li>
+          </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.download_button(
+            label="⬇️  Descargar reporte .xlsx",
+            data=st.session_state.excel_bytes,
+            file_name="georeferenciacion_resultado.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=False,
+            type="primary",
         )
 
-        col_d1, col_d2 = st.columns([1,2])
-        with col_d1:
-            st.download_button(
-                label="⬇️ Descargar reporte .xlsx",
-                data=st.session_state.excel_bytes,
-                file_name="georeferenciacion_resultado.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-                type="primary",
-            )
-
-        with col_d2:
-            st.markdown("""
-            **El reporte incluye:**
-            - Coordenadas corregidas y validadas
-            - Nivel de calidad inicial y final (Tabla 9 del manual)
-            - Resultado de validación espacial por municipio
-            - Comentarios de georreferenciación (sección 3.6, manual)
-            - Campos obligatorios DwC (Tabla 6 y 12 del manual)
-            """)
-
-        st.divider()
-        st.markdown("**Referencia metodológica**")
-        st.caption(
-            "Escobar D., Jojoa L.M., Díaz S.R., Rudas E., Albarracín R.D., "
-            "Ramírez C., Gómez J.Y., López C.R., Saavedra J., Ortiz R. (2016). "
-            "Georreferenciación de localidades: Una guía de referencia para "
-            "colecciones biológicas. Instituto Humboldt – ICN/UNAL. "
-            "Bogotá D.C., Colombia. 144 p."
-        )
+        st.markdown("""
+        <div class="section-head" style="margin-top:32px">
+          <div class="section-label">Referencia metodológica</div>
+          <div class="section-line"></div>
+        </div>
+        <div class="reference">
+          Escobar D., Jojoa L.M., Díaz S.R., Rudas E., Albarracín R.D.,
+          Ramírez C., Gómez J.Y., López C.R., Saavedra J., Ortiz R. (2016).
+          Georreferenciación de localidades: Una guía de referencia para
+          colecciones biológicas. Instituto de Investigación de Recursos
+          Biológicos Alexander von Humboldt – Instituto de Ciencias Naturales,
+          Universidad Nacional de Colombia. Bogotá D.C., Colombia. 144 p.
+        </div>
+        """, unsafe_allow_html=True)
