@@ -10,6 +10,7 @@ import numpy as np
 import os
 import sys
 import io
+import re
 
 # ─── Configuración de página ──────────────────────────────────
 st.set_page_config(
@@ -151,9 +152,16 @@ section[data-testid="stSidebar"] {
 """, unsafe_allow_html=True)
 
 # ─── Rutas ────────────────────────────────────────────────────
-BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
-GADM_PATH = os.path.join(BASE_DIR, "datos", "gadm41_COL_2.json")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
+sys.path.insert(0, os.path.join(BASE_DIR, "bloques"))
+
+_posibles_gadm = [
+    os.path.join(BASE_DIR, "datos", "gadm41_COL_2.json"),
+    "/mount/src/verificador-georef-sib/datos/gadm41_COL_2.json",
+    "datos/gadm41_COL_2.json",
+]
+GADM_PATH = next((p for p in _posibles_gadm if os.path.exists(p)), _posibles_gadm[0])
 
 # ─── Sidebar ──────────────────────────────────────────────────
 with st.sidebar:
@@ -207,13 +215,11 @@ if "procesado" not in st.session_state:
 if ejecutar and file_180 is not None and file_84 is not None:
     with st.spinner("Procesando registros..."):
         try:
-            from bloque1_coordenadas import aplicar_bloque1
-            from bloque5_campos      import aplicar_bloque5
-            from bloque6_verbatim    import aplicar_bloque6
-            from bloque7_clasificacion import aplicar_bloque7
-            from bloque8_reclasificacion import aplicar_bloque8
-            from bloque9_centroides  import aplicar_bloque9
-            from bloque10_exportar   import aplicar_bloque10
+            from verificador_georef_completo import (
+                aplicar_bloque1, aplicar_bloque3, aplicar_bloque5,
+                aplicar_bloque6, aplicar_bloque7, aplicar_bloque8,
+                aplicar_bloque9, aplicar_bloque10
+            )
 
             # Guardar archivos temporalmente
             with open("/tmp/base_180.xlsx", "wb") as f:
@@ -225,16 +231,20 @@ if ejecutar and file_180 is not None and file_84 is not None:
             progress = st.progress(0, text="Estandarizando coordenadas...")
             df = aplicar_bloque1("/tmp/base_84.xlsx", "/tmp/base_180.xlsx")
 
-            # Bloque 5 — campos obligatorios
-            progress.progress(20, text="Verificando campos DwC...")
+            # Bloque 5 — campos obligatorios DwC
+            progress.progress(15, text="Verificando campos DwC...")
             df, _ = aplicar_bloque5(df)
 
+            # Bloque 6 — verificación de localidad
+            progress.progress(28, text="Verificando localidades...")
+            df = aplicar_bloque6(df)
+
             # Bloque 7 — clasificación niveles
-            progress.progress(35, text="Clasificando niveles de calidad...")
+            progress.progress(40, text="Clasificando niveles de calidad...")
             df = aplicar_bloque7(df)
 
             # Bloque 8 — validación espacial (requiere GADM)
-            progress.progress(50, text="Validando coordenadas contra municipios...")
+            progress.progress(55, text="Validando coordenadas contra municipios...")
             if gadm_ok:
                 df = aplicar_bloque8(df, GADM_PATH)
             else:
@@ -248,8 +258,12 @@ if ejecutar and file_180 is not None and file_84 is not None:
                 df["depto_detectado"]     = ""
                 df["mensaje_b2"]          = ""
 
+            # Bloque 3 — elevación vía API (depende de validacion_b2 del B8)
+            progress.progress(68, text="Consultando elevaciones (API)...")
+            df = aplicar_bloque3(df)
+
             # Bloque 9 — centroides para sin coordenadas
-            progress.progress(70, text="Asignando centroides...")
+            progress.progress(82, text="Asignando centroides...")
             if gadm_ok:
                 df = aplicar_bloque9(df, GADM_PATH, usar_nominatim=True)
 
@@ -321,9 +335,13 @@ else:
     n2_6      = int(df["Nivel_final"].isin([2,3,4,5,6]).sum())
     n7        = int((df["Nivel_final"] == 7).sum())
 
-    val_ok    = int((df.get("validacion_b2","") == "OK").sum()) if "validacion_b2" in df.columns else 0
-    val_rev   = int((df.get("validacion_b2","") == "Revisar").sum()) if "validacion_b2" in df.columns else 0
-    val_err   = int((df.get("validacion_b2","") == "Error").sum()) if "validacion_b2" in df.columns else 0
+    if "validacion_b2" in df.columns:
+        col_val_m = df["validacion_b2"].astype(str)
+        val_ok  = int(col_val_m.str.contains(r"OK|✅",      na=False, regex=True).sum())
+        val_rev = int(col_val_m.str.contains(r"Revisar|⚠",  na=False, regex=True).sum())
+        val_err = int(col_val_m.str.contains(r"Error|❌",   na=False, regex=True).sum())
+    else:
+        val_ok = val_rev = val_err = 0
 
     c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
     metricas = [
@@ -370,8 +388,15 @@ else:
             # Aplicar filtros
             df_mapa = df.copy()
             if filtro_resultado != "Todos" and "validacion_b2" in df_mapa.columns:
-                mapa_val = {"[✓] OK":"OK","[!] Revisar":"Revisar","[X] Error":"Error","Sin validación":""}
-                df_mapa = df_mapa[df_mapa["validacion_b2"] == mapa_val.get(filtro_resultado,"")]
+                mapa_pat = {
+                    "[✓] OK":        r"OK|✅",
+                    "[!] Revisar":   r"Revisar|⚠",
+                    "[X] Error":     r"Error|❌",
+                    "Sin validación": r"^$|^nan$",
+                }
+                pat = mapa_pat.get(filtro_resultado)
+                if pat:
+                    df_mapa = df_mapa[df_mapa["validacion_b2"].astype(str).str.contains(pat, na=False, regex=True)]
             if filtro_depto != "Todos" and "*Departamento" in df_mapa.columns:
                 df_mapa = df_mapa[df_mapa["*Departamento"] == filtro_depto]
 
@@ -400,8 +425,6 @@ else:
             col_lon = "lon_wgs84" if "lon_wgs84" in df_mapa.columns else "lon_decimal_calculada"
             col_val = "validacion_b2"
 
-            colores_val = {"OK":"green","Revisar":"orange","Error":"red","":"gray"}
-
             puntos_agregados = 0
             for _, row in df_mapa.iterrows():
                 lat = row.get(col_lat)
@@ -413,7 +436,10 @@ else:
                 except: continue
 
                 val      = str(row.get(col_val,"")).strip()
-                color    = colores_val.get(val, "gray")
+                if re.search(r"OK|✅", val):       color = "green"
+                elif re.search(r"Revisar|⚠", val): color = "orange"
+                elif re.search(r"Error|❌", val):  color = "red"
+                else:                               color = "gray"
                 especie  = str(row.get("Nombre científico", row.get("scientificName","—")))
                 municipio= str(row.get("*Municipio", row.get("county","—")))
                 depto    = str(row.get("*Departamento", row.get("stateProvince","—")))
@@ -525,4 +551,3 @@ else:
             "colecciones biológicas. Instituto Humboldt – ICN/UNAL. "
             "Bogotá D.C., Colombia. 144 p."
         )
-
