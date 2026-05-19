@@ -299,6 +299,9 @@ if ejecutar and file_180 and file_84:
                 total = inc_d + inc_c
                 return int(total) if total > 0 else None
             df["Incertidumbre de coordenadas (m)"] = df.apply(_inc_directo, axis=1)
+            st.write("DEBUG incertidumbre:", df["Incertidumbre de coordenadas (m)"].value_counts().head(5).to_dict())
+            st.write("DEBUG lat_original muestra:", df["Latitud original"].head(3).tolist())
+            st.write("DEBUG formato muestra:", df["formato_coordenada"].head(3).tolist() if "formato_coordenada" in df.columns else "COLUMNA NO EXISTE")
             st.session_state.excel_bytes = aplicar_bloque10(df, idioma=None)
             st.session_state.df_resultado = df
             st.session_state.procesado    = True
