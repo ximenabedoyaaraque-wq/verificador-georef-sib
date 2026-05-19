@@ -252,25 +252,27 @@ if ejecutar and file_180 and file_84:
 
             prog.progress(82, text="Calculando incertidumbre…")
             try:
-                import geopandas as gpd
-                import unicodedata as _ud
-                gdf_inc = gpd.read_file(GADM_PATH)
-                gdf_inc["muni_norm"] = gdf_inc["NAME_2"].apply(
-                    lambda x: "".join(
-                        c for c in _ud.normalize("NFD", str(x).strip().lower())
-                        if _ud.category(c) != "Mn"
-                    )
+                from verificador_georef_completo_6 import (
+                    incertidumbre_por_formato as _inc_fmt
                 )
-                df["Incertidumbre de coordenadas (m)"] = df.apply(
-                    lambda row: calcular_incertidumbre_total(row, gdf_inc),
-                    axis=1
-                )
+                def _calc_inc(row):
+                    datum  = str(row.get("Datum", "")).strip()
+                    fmt    = str(row.get("formato_coordenada", ""))
+                    lat_o  = row.get("Latitud original")
+                    inc_d  = 500 if datum in ("", "nan", "WGS 84 (asumido)") else 0
+                    inc_c  = _inc_fmt(lat_o, fmt) or 0
+                    total  = inc_d + inc_c
+                    return int(total) if total > 0 else None
+                df["Incertidumbre de coordenadas (m)"] = df.apply(_calc_inc, axis=1)
             except Exception as _e:
-                # Sin GADM disponible: calcular sin extensión de municipio
-                df["Incertidumbre de coordenadas (m)"] = df.apply(
-                    lambda row: calcular_incertidumbre_total(row, None),
-                    axis=1
-                )
+                st.warning(f"Incertidumbre no calculada: {_e}")
+
+            # Sacar elevación API de columnas internas → columnas visibles en Excel
+            if "elevacion_api" in df.columns:
+                df["Elevación API (msnm)"]        = df["elevacion_api"]
+                df["Validación elevación"]         = df["elevacion_estado"].map(
+                    {"OK": "[✓] OK", "Revisar": "[!] Revisar"}).fillna("")
+                df["Nota elevación"]               = df["elevacion_nota"]
 
             prog.progress(90, text="Generando reporte Excel…")
             st.session_state.excel_bytes = aplicar_bloque10(df, idioma=None)
