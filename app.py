@@ -20,7 +20,6 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
 
-/* ── Tokens ─────────────────────────────────────── */
 :root {
   --ink:        #0D1F0F;
   --ink-2:      #2C3E2E;
@@ -66,296 +65,64 @@ st.markdown("""
   }
 }
 
-/* ── Reset ───────────────────────────────────────── */
-html, body, [class*="css"] {
-  font-family: var(--sans) !important;
-  color: var(--ink) !important;
-}
+html, body, [class*="css"] { font-family: var(--sans) !important; color: var(--ink) !important; }
 
-/* ── Sidebar ─────────────────────────────────────── */
-section[data-testid="stSidebar"] {
-  background: var(--paper) !important;
-  border-right: 1px solid var(--border) !important;
-}
-section[data-testid="stSidebar"] > div {
-  padding: 28px 20px 20px !important;
-}
+section[data-testid="stSidebar"] { background: var(--paper) !important; border-right: 1px solid var(--border) !important; }
+section[data-testid="stSidebar"] > div { padding: 28px 20px 20px !important; }
+.main .block-container { padding: 40px 48px 48px !important; max-width: 1280px !important; }
 
-/* ── Main content ────────────────────────────────── */
-.main .block-container {
-  padding: 40px 48px 48px !important;
-  max-width: 1280px !important;
-}
-
-/* ── Logotipo sidebar ────────────────────────────── */
 .logo-wrap { margin-bottom: 24px; }
-.logo-name {
-  font-family: var(--serif) !important;
-  font-size: 21px;
-  font-weight: 500;
-  color: var(--moss) !important;
-  line-height: 1.2;
-  letter-spacing: -.01em;
-}
-.logo-sub {
-  font-size: 16px;
-  font-weight: 400;
-  color: var(--ink-3) !important;
-  text-transform: uppercase;
-  letter-spacing: .12em;
-  margin-top: 3px;
-}
+.logo-name { font-family: var(--serif) !important; font-size: 21px; font-weight: 500; color: var(--moss) !important; line-height: 1.2; letter-spacing: -.01em; }
+.logo-sub  { font-size: 16px; font-weight: 400; color: var(--ink-3) !important; text-transform: uppercase; letter-spacing: .12em; margin-top: 3px; }
 
-/* ── Upload labels ───────────────────────────────── */
-.upload-label {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--ink-3) !important;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  margin-bottom: 5px;
-  margin-top: 14px;
-  display: block;
-}
+.upload-label { font-size: 16px; font-weight: 500; color: var(--ink-3) !important; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 5px; margin-top: 14px; display: block; }
 
-/* ── Status pills ────────────────────────────────── */
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 15px;
-  font-weight: 500;
-  margin-bottom: 4px;
-  width: 100%;
-}
-.pill-ok    { background: #E8F5E0; color: #2D5016; }
-.pill-warn  { background: #FEF3C7; color: #7C5A00; }
-.pill-err   { background: #FEE2E2; color: #7F1D1D; }
-.pill-nd    { background: var(--mist); color: var(--ink-3); }
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 15px; font-weight: 500; margin-bottom: 4px; width: 100%; }
+.pill-ok   { background: #E8F5E0; color: #2D5016; }
+.pill-warn { background: #FEF3C7; color: #7C5A00; }
+.pill-err  { background: #FEE2E2; color: #7F1D1D; }
+.pill-nd   { background: var(--mist); color: var(--ink-3); }
 
-/* ── Copyright sidebar ───────────────────────────── */
-.copy {
-  font-size: 15px;
-  color: var(--ink-3) !important;
-  line-height: 1.7;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-2);
-}
+.copy { font-size: 15px; color: var(--ink-3) !important; line-height: 1.7; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-2); }
 
-/* ── Hero ────────────────────────────────────────── */
 .hero { margin-bottom: 40px; }
-.hero-eyebrow {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--fern) !important;
-  text-transform: uppercase;
-  letter-spacing: .16em;
-  margin-bottom: 10px;
-}
-.hero-title {
-  font-family: var(--serif) !important;
-  font-size: clamp(34px, 5vw, 52px);
-  font-weight: 300;
-  color: var(--ink) !important;
-  line-height: 1.15;
-  letter-spacing: -.02em;
-  margin-bottom: 14px;
-}
-.hero-title em {
-  font-style: italic;
-  color: var(--fern) !important;
-}
-.hero-desc {
-  font-size: 16px;
-  color: var(--ink-3) !important;
-  max-width: 560px;
-  line-height: 1.65;
-}
+.hero-eyebrow { font-size: 16px; font-weight: 500; color: var(--fern) !important; text-transform: uppercase; letter-spacing: .16em; margin-bottom: 10px; }
+.hero-title { font-family: var(--serif) !important; font-size: clamp(34px, 5vw, 52px); font-weight: 300; color: var(--ink) !important; line-height: 1.15; letter-spacing: -.02em; margin-bottom: 14px; }
+.hero-title em { font-style: italic; color: var(--fern) !important; }
+.hero-desc { font-size: 16px; color: var(--ink-3) !important; max-width: 560px; line-height: 1.65; }
 
-/* ── Metric cards ────────────────────────────────── */
 .metric-grid { display: flex; gap: 12px; margin: 28px 0 36px; }
-.metric-card {
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  padding: 18px 20px;
-  flex: 1;
-  box-shadow: var(--shadow);
-  position: relative;
-  overflow: hidden;
-}
-.metric-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--fern), var(--sage));
-}
-.metric-num {
-  font-family: var(--serif) !important;
-  font-size: 36px;
-  font-weight: 400;
-  color: var(--moss) !important;
-  line-height: 1;
-  margin-bottom: 5px;
-}
-.metric-label {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--ink-3) !important;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-}
+.metric-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 18px 20px; flex: 1; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+.metric-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--fern), var(--sage)); }
+.metric-num { font-family: var(--serif) !important; font-size: 36px; font-weight: 400; color: var(--moss) !important; line-height: 1; margin-bottom: 5px; }
+.metric-label { font-size: 16px; font-weight: 500; color: var(--ink-3) !important; text-transform: uppercase; letter-spacing: .1em; }
 
-/* ── Steps ───────────────────────────────────────── */
 .steps { margin: 24px 0; }
-.step-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  margin-bottom: 12px;
-}
-.step-num {
-  width: 24px; height: 24px;
-  border-radius: 50%;
-  background: var(--mist);
-  border: 1.5px solid var(--border);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--fern) !important;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-.step-text {
-  font-size: 15px;
-  color: var(--ink-2) !important;
-  line-height: 1.5;
-  padding-top: 2px;
-}
+.step-item { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 12px; }
+.step-num { width: 24px; height: 24px; border-radius: 50%; background: var(--mist); border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 500; color: var(--fern) !important; flex-shrink: 0; margin-top: 1px; }
+.step-text { font-size: 15px; color: var(--ink-2) !important; line-height: 1.5; padding-top: 2px; }
 
-/* ── Section header ──────────────────────────────── */
-.section-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 32px 0 16px;
-}
-.section-line {
-  flex: 1;
-  height: 1px;
-  background: var(--border-2);
-}
-.section-label {
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--ink-3) !important;
-  text-transform: uppercase;
-  letter-spacing: .12em;
-  white-space: nowrap;
-}
+.section-head { display: flex; align-items: center; gap: 10px; margin: 32px 0 16px; }
+.section-line { flex: 1; height: 1px; background: var(--border-2); }
+.section-label { font-size: 16px; font-weight: 500; color: var(--ink-3) !important; text-transform: uppercase; letter-spacing: .12em; white-space: nowrap; }
 
-/* ── Result bar ──────────────────────────────────── */
-.result-bar {
-  display: flex;
-  gap: 10px;
-  margin: 20px 0;
-  flex-wrap: wrap;
-}
-.result-chip {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 10px 16px;
-  box-shadow: var(--shadow);
-}
-.chip-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-}
-.chip-num {
-  font-family: var(--serif) !important;
-  font-size: 23px;
-  font-weight: 400;
-  color: var(--ink) !important;
-  line-height: 1;
-}
-.chip-label {
-  font-size: 16px;
-  color: var(--ink-3) !important;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-}
+.result-bar { display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap; }
+.result-chip { display: flex; align-items: center; gap: 7px; background: var(--white); border: 1px solid var(--border); border-radius: var(--r); padding: 10px 16px; box-shadow: var(--shadow); }
+.chip-dot { width: 8px; height: 8px; border-radius: 50%; }
+.chip-num { font-family: var(--serif) !important; font-size: 23px; font-weight: 400; color: var(--ink) !important; line-height: 1; }
+.chip-label { font-size: 16px; color: var(--ink-3) !important; text-transform: uppercase; letter-spacing: .08em; }
 
-/* ── Tab override ────────────────────────────────── */
-button[data-baseweb="tab"] {
-  font-family: var(--sans) !important;
-  font-size: 16px !important;
-  font-weight: 500 !important;
-  letter-spacing: .03em !important;
-  text-transform: uppercase !important;
-}
+button[data-baseweb="tab"] { font-family: var(--sans) !important; font-size: 16px !important; font-weight: 500 !important; letter-spacing: .03em !important; text-transform: uppercase !important; }
 
-/* ── Info box ────────────────────────────────────── */
-.info-box {
-  background: var(--mist);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--fern);
-  border-radius: var(--r);
-  padding: 14px 16px;
-  font-size: 15px;
-  color: var(--ink-2) !important;
-  line-height: 1.6;
-}
+.info-box { background: var(--mist); border: 1px solid var(--border); border-left: 3px solid var(--fern); border-radius: var(--r); padding: 14px 16px; font-size: 15px; color: var(--ink-2) !important; line-height: 1.6; }
 
-/* ── Download card ───────────────────────────────── */
-.dl-card {
-  background: var(--white);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  padding: 28px 32px;
-  box-shadow: var(--shadow-lg);
-  margin-bottom: 24px;
-}
-.dl-title {
-  font-family: var(--serif) !important;
-  font-size: 23px;
-  font-weight: 400;
-  color: var(--ink) !important;
-  margin-bottom: 8px;
-}
-.dl-desc {
-  font-size: 15px;
-  color: var(--ink-3) !important;
-  line-height: 1.6;
-  margin-bottom: 20px;
-}
-.dl-list {
-  font-size: 16px;
-  color: var(--ink-2) !important;
-  line-height: 1.8;
-  padding-left: 0;
-  list-style: none;
-}
+.dl-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 28px 32px; box-shadow: var(--shadow-lg); margin-bottom: 24px; }
+.dl-title { font-family: var(--serif) !important; font-size: 23px; font-weight: 400; color: var(--ink) !important; margin-bottom: 8px; }
+.dl-desc { font-size: 15px; color: var(--ink-3) !important; line-height: 1.6; margin-bottom: 20px; }
+.dl-list { font-size: 16px; color: var(--ink-2) !important; line-height: 1.8; padding-left: 0; list-style: none; }
 .dl-list li::before { content: "→  "; color: var(--fern); font-weight: 500; }
 
-/* ── Reference ───────────────────────────────────── */
-.reference {
-  font-size: 15px;
-  color: var(--ink-3) !important;
-  line-height: 1.7;
-  padding: 16px;
-  background: var(--mist);
-  border-radius: var(--r);
-  border: 1px solid var(--border-2);
-  font-style: italic;
-}
+.reference { font-size: 15px; color: var(--ink-3) !important; line-height: 1.7; padding: 16px; background: var(--mist); border-radius: var(--r); border: 1px solid var(--border-2); font-style: italic; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -371,6 +138,22 @@ _posibles_gadm = [
 ]
 GADM_PATH = next((p for p in _posibles_gadm if os.path.exists(p)), None)
 
+# ── Helper: normalizar valor de validación ─────────
+def _val_color(val: str) -> str:
+    """Devuelve color hex según el texto de validación (emojis O texto corchete)."""
+    v = str(val).strip()
+    if "OK" in v or "✅" in v:      return "#4A7C2F"
+    if "Revisar" in v or "⚠" in v:  return "#D97706"
+    if "Error" in v or "❌" in v:   return "#C0392B"
+    return "#9CA3AF"
+
+def _val_desc(val: str) -> str:
+    v = str(val).strip()
+    if "OK" in v or "✅" in v:      return "Dentro del municipio reportado"
+    if "Revisar" in v or "⚠" in v:  return "Municipio vecino — revisar"
+    if "Error" in v or "❌" in v:   return "Fuera de Colombia o municipio incorrecto"
+    return "Sin validación espacial"
+
 # ── Sidebar ────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
@@ -380,25 +163,19 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<span class="upload-label">Base con coordenadas (.xlsx)</span>',
-                unsafe_allow_html=True)
-    file_180 = st.file_uploader("", type=["xlsx","xls"],
-                                key="file_180", label_visibility="collapsed")
+    st.markdown('<span class="upload-label">Base con coordenadas (.xlsx)</span>', unsafe_allow_html=True)
+    file_180 = st.file_uploader("", type=["xlsx","xls"], key="file_180", label_visibility="collapsed")
 
-    st.markdown('<span class="upload-label">Base sin coordenadas (.xlsx)</span>',
-                unsafe_allow_html=True)
-    file_84  = st.file_uploader("", type=["xlsx","xls"],
-                                key="file_84",  label_visibility="collapsed")
+    st.markdown('<span class="upload-label">Base sin coordenadas (.xlsx)</span>', unsafe_allow_html=True)
+    file_84  = st.file_uploader("", type=["xlsx","xls"], key="file_84",  label_visibility="collapsed")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     gadm_ok = GADM_PATH is not None and os.path.exists(GADM_PATH)
     if gadm_ok:
-        st.markdown('<div class="pill pill-ok">✓ &nbsp;Capa GADM Colombia activa</div>',
-                    unsafe_allow_html=True)
+        st.markdown('<div class="pill pill-ok">✓ &nbsp;Capa GADM Colombia activa</div>', unsafe_allow_html=True)
     else:
-        st.markdown('<div class="pill pill-warn">⚠ &nbsp;GADM no encontrado</div>',
-                    unsafe_allow_html=True)
+        st.markdown('<div class="pill pill-warn">⚠ &nbsp;GADM no encontrado — validación espacial limitada</div>', unsafe_allow_html=True)
 
     ejecutar = st.button(
         "▶  Ejecutar análisis",
@@ -430,9 +207,10 @@ if ejecutar and file_180 and file_84:
     with st.spinner("Procesando registros…"):
         try:
             from verificador_georef_completo_6 import (
-                aplicar_bloque1, aplicar_bloque5, aplicar_bloque6,
-                aplicar_bloque7, aplicar_bloque8, aplicar_bloque9,
-                aplicar_bloque10,
+                aplicar_bloque1, aplicar_bloque3, aplicar_bloque5,
+                aplicar_bloque6, aplicar_bloque7, aplicar_bloque8,
+                aplicar_bloque9, aplicar_bloque10,
+                calcular_incertidumbre_total,
             )
 
             with open("/tmp/base_180.xlsx", "wb") as f: f.write(file_180.read())
@@ -444,10 +222,13 @@ if ejecutar and file_180 and file_84:
             prog.progress(20, text="Verificando campos Darwin Core…")
             df, _ = aplicar_bloque5(df)
 
+            prog.progress(28, text="Comparando localidad original vs estandarizada…")
+            df = aplicar_bloque6(df)
+
             prog.progress(35, text="Clasificando niveles de calidad…")
             df = aplicar_bloque7(df)
 
-            prog.progress(50, text="Validando coordenadas…")
+            prog.progress(50, text="Validando coordenadas contra municipios GADM…")
             if gadm_ok and GADM_PATH:
                 df = aplicar_bloque8(df, GADM_PATH)
             else:
@@ -455,18 +236,69 @@ if ejecutar and file_180 and file_84:
                 df["lat_wgs84"]           = df["lat_decimal_calculada"]
                 df["lon_wgs84"]           = df["lon_decimal_calculada"]
                 df["validacion_b2"]       = df["conversion_estado"].map(
-                    {"OK":"[✓] OK","Revisar":"[!] Revisar",
-                     "Error":"[X] Error","sin coordenadas":""}
+                    {"OK":"✅ OK","Revisar":"⚠ Revisar",
+                     "Error":"❌ Error","sin coordenadas":""}
                 ).fillna("")
                 df["municipio_detectado"] = ""
                 df["depto_detectado"]     = ""
                 df["mensaje_b2"]          = ""
 
+            prog.progress(60, text="Verificando elevación…")
+            df = aplicar_bloque3(df)
+
             prog.progress(70, text="Asignando centroides…")
             if gadm_ok and GADM_PATH:
                 df = aplicar_bloque9(df, GADM_PATH, usar_nominatim=True)
 
+            prog.progress(82, text="Calculando incertidumbre…")
+            try:
+                from verificador_georef_completo_6 import (
+                    incertidumbre_por_formato as _inc_fmt
+                )
+                def _calc_inc(row):
+                    datum  = str(row.get("Datum", "")).strip()
+                    fmt    = str(row.get("formato_coordenada", ""))
+                    lat_o  = row.get("Latitud original")
+                    inc_d  = 500 if datum in ("", "nan", "WGS 84 (asumido)") else 0
+                    inc_c  = _inc_fmt(lat_o, fmt) or 0
+                    total  = inc_d + inc_c
+                    return int(total) if total > 0 else None
+                df["Incertidumbre de coordenadas (m)"] = df.apply(_calc_inc, axis=1)
+            except Exception as _e:
+                st.warning(f"Incertidumbre no calculada: {_e}")
+
+            # Sacar elevación API de columnas internas → columnas visibles en Excel
+            if "elevacion_api" in df.columns:
+                df["Elevación API (msnm)"]        = df["elevacion_api"]
+                df["Validación elevación"]         = df["elevacion_estado"].map(
+                    {"OK": "[✓] OK", "Revisar": "[!] Revisar"}).fillna("")
+                df["Nota elevación"]               = df["elevacion_nota"]
+
             prog.progress(90, text="Generando reporte Excel…")
+            # Calcular incertidumbre aquí — último momento antes del Excel
+            # No depende de formato_coordenada — usa lat_original directamente
+            import re as _re
+            def _inc_directo(row):
+                datum = str(row.get("Datum", "")).strip()
+                lat_o = row.get("Latitud original", row.get("verbatimLatitude"))
+                fmt   = str(row.get("formato_coordenada", "")).strip()
+                # Detectar formato si está vacío
+                if not fmt and not pd.isna(lat_o):
+                    s = str(lat_o).strip()
+                    if "''" in s:           fmt = "GMS"
+                    elif "°" in s:          fmt = "GMD"
+                    elif _re.match(r"^-?\d{5,10}$", s): fmt = "entero sin punto"
+                    else:
+                        try: float(s); fmt = "decimal"
+                        except: fmt = ""
+                # Incertidumbre por datum
+                inc_d = 500 if datum in ("", "nan", "WGS 84 (asumido)") else 0
+                # Incertidumbre por formato
+                _T = {"GMS":44,"GMD":262,"entero sin punto":2,"decimal":157}
+                inc_c = _T.get(fmt, 0)
+                total = inc_d + inc_c
+                return int(total) if total > 0 else None
+            df["Incertidumbre de coordenadas (m)"] = df.apply(_inc_directo, axis=1)
             st.session_state.excel_bytes = aplicar_bloque10(df, idioma=None)
             st.session_state.df_resultado = df
             st.session_state.procesado    = True
@@ -494,22 +326,10 @@ if not st.session_state.procesado:
 
     st.markdown("""
     <div class="metric-grid">
-      <div class="metric-card">
-        <div class="metric-num">10</div>
-        <div class="metric-label">Procesos automatizados</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-num">7</div>
-        <div class="metric-label">Niveles de calidad</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-num">50k+</div>
-        <div class="metric-label">Registros soportados</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-num">264</div>
-        <div class="metric-label">Registros de prueba</div>
-      </div>
+      <div class="metric-card"><div class="metric-num">10</div><div class="metric-label">Procesos automatizados</div></div>
+      <div class="metric-card"><div class="metric-num">7</div><div class="metric-label">Niveles de calidad</div></div>
+      <div class="metric-card"><div class="metric-num">50k+</div><div class="metric-label">Registros soportados</div></div>
+      <div class="metric-card"><div class="metric-num">264</div><div class="metric-label">Registros de prueba</div></div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -519,26 +339,11 @@ if not st.session_state.procesado:
       <div class="section-line"></div>
     </div>
     <div class="steps">
-      <div class="step-item">
-        <div class="step-num">1</div>
-        <div class="step-text">Sube tu base <b>con coordenadas</b> (.xlsx) desde el panel izquierdo</div>
-      </div>
-      <div class="step-item">
-        <div class="step-num">2</div>
-        <div class="step-text">Sube tu base <b>sin coordenadas</b> (.xlsx)</div>
-      </div>
-      <div class="step-item">
-        <div class="step-num">3</div>
-        <div class="step-text">Presiona <b>▶ Ejecutar análisis</b> y espera el procesamiento</div>
-      </div>
-      <div class="step-item">
-        <div class="step-num">4</div>
-        <div class="step-text">Revisa los resultados en el <b>visor de puntos</b> y la tabla</div>
-      </div>
-      <div class="step-item">
-        <div class="step-num">5</div>
-        <div class="step-text">Descarga el <b>reporte Excel</b> con colores, niveles y comentarios</div>
-      </div>
+      <div class="step-item"><div class="step-num">1</div><div class="step-text">Sube tu base <b>con coordenadas</b> (.xlsx) desde el panel izquierdo</div></div>
+      <div class="step-item"><div class="step-num">2</div><div class="step-text">Sube tu base <b>sin coordenadas</b> (.xlsx)</div></div>
+      <div class="step-item"><div class="step-num">3</div><div class="step-text">Presiona <b>▶ Ejecutar análisis</b> y espera el procesamiento</div></div>
+      <div class="step-item"><div class="step-num">4</div><div class="step-text">Revisa los resultados en el <b>visor de puntos</b> y la tabla</div></div>
+      <div class="step-item"><div class="step-num">5</div><div class="step-text">Descarga el <b>reporte Excel</b> con colores, niveles y comentarios</div></div>
     </div>
     <div class="info-box">
       💡 Ambas bases deben venir estandarizadas del proceso previo
@@ -556,9 +361,14 @@ else:
     n7    = int((df["Nivel_final"] == 7).sum())
 
     col_val = "validacion_b2" if "validacion_b2" in df.columns else ""
-    val_ok  = int((df[col_val] == "[✓] OK").sum())  if col_val else 0
-    val_rev = int((df[col_val] == "[!] Revisar").sum()) if col_val else 0
-    val_err = int((df[col_val] == "[X] Error").sum())   if col_val else 0
+
+    # ── FIX: contadores con contains para soportar emojis Y texto corchete ──
+    if col_val:
+        val_ok  = int(df[col_val].str.contains("OK|✅",     na=False).sum())
+        val_rev = int(df[col_val].str.contains("Revisar|⚠", na=False).sum())
+        val_err = int(df[col_val].str.contains("Error|❌",  na=False).sum())
+    else:
+        val_ok = val_rev = val_err = 0
 
     st.markdown(f"""
     <div class="result-bar">
@@ -580,15 +390,15 @@ else:
       </div>
       <div class="result-chip">
         <div class="chip-dot" style="background:#4A7C2F"></div>
-        <div><div class="chip-num">{val_ok}</div><div class="chip-label">[✓] OK</div></div>
+        <div><div class="chip-num">{val_ok}</div><div class="chip-label">✅ OK</div></div>
       </div>
       <div class="result-chip">
         <div class="chip-dot" style="background:#D97706"></div>
-        <div><div class="chip-num">{val_rev}</div><div class="chip-label">[!] Revisar</div></div>
+        <div><div class="chip-num">{val_rev}</div><div class="chip-label">⚠ Revisar</div></div>
       </div>
       <div class="result-chip">
         <div class="chip-dot" style="background:#C0392B"></div>
-        <div><div class="chip-num">{val_err}</div><div class="chip-label">[X] Error</div></div>
+        <div><div class="chip-num">{val_err}</div><div class="chip-label">❌ Error</div></div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -604,15 +414,18 @@ else:
 
             c1, c2 = st.columns([2,2])
             with c1:
-                filtro_res = st.selectbox("Resultado", ["Todos","[✓] OK","[!] Revisar","[X] Error"])
+                filtro_res = st.selectbox("Resultado", ["Todos","✅ OK","⚠ Revisar","❌ Error"])
             with c2:
                 deptos = ["Todos"] + sorted(df["*Departamento"].dropna().unique().tolist()) \
                     if "*Departamento" in df.columns else ["Todos"]
                 filtro_dep = st.selectbox("Departamento", deptos)
 
             df_m = df.copy()
+            # filtro por resultado: usar contains para soportar ambos formatos
             if filtro_res != "Todos" and col_val:
-                df_m = df_m[df_m[col_val] == filtro_res]
+                kw = {"✅ OK":"OK","⚠ Revisar":"Revisar","❌ Error":"Error"}.get(filtro_res,"")
+                if kw:
+                    df_m = df_m[df_m[col_val].str.contains(kw, na=False)]
             if filtro_dep != "Todos" and "*Departamento" in df_m.columns:
                 df_m = df_m[df_m["*Departamento"] == filtro_dep]
 
@@ -629,7 +442,6 @@ else:
 
             col_lat = "lat_wgs84" if "lat_wgs84" in df_m.columns else "lat_decimal_calculada"
             col_lon = "lon_wgs84" if "lon_wgs84" in df_m.columns else "lon_decimal_calculada"
-            color_map = {"[✓] OK":"#4A7C2F","[!] Revisar":"#D97706","[X] Error":"#C0392B","":"#9CA3AF"}
 
             n_puntos = 0
             for _, row in df_m.iterrows():
@@ -638,45 +450,84 @@ else:
                 if pd.isna(lat) or pd.isna(lon): continue
                 try:
                     lat, lon = float(lat), float(lon)
-                    if not (-5<=lat<=16 and -82<=lon<=-60): continue
+                    if not (-5 <= lat <= 16 and -82 <= lon <= -60): continue
                 except: continue
 
-                val      = str(row.get(col_val,"")).strip()
-                color    = color_map.get(val,"#9CA3AF")
-                especie  = str(row.get("Nombre científico", row.get("scientificName","—")))
-                municipio= str(row.get("*Municipio", row.get("county","—")))
-                depto    = str(row.get("*Departamento", row.get("stateProvince","—")))
-                nivel    = row.get("Nivel_final","—")
-                catalogo = str(row.get("Número de catálogo", row.get("catalogNumber","—")))
-                muni_det = str(row.get("municipio_detectado","—"))
-                val_desc = {"[✓] OK":"Dentro del municipio reportado",
-                            "[!] Revisar":"Municipio vecino — revisar",
-                            "[X] Error":"Fuera de Colombia"}.get(val,"Sin validación")
+                val      = str(row.get(col_val, "")).strip() if col_val else ""
+                color    = _val_color(val)
+                vdesc    = _val_desc(val)
 
-                popup = f"""
-                <div style="font-family:'DM Sans',sans-serif;min-width:220px;font-size:13px;padding:4px">
-                  <div style="font-weight:600;font-size:14px;margin-bottom:6px">{catalogo}</div>
-                  <div style="color:#555;font-style:italic;margin-bottom:8px">{especie}</div>
-                  <div style="border-top:1px solid #eee;padding-top:8px">
-                    <div><b>Municipio reportado:</b> {municipio}, {depto}</div>
-                    <div><b>Municipio detectado:</b> {muni_det}</div>
+                # ── Datos del popup (con fallbacks robustos) ──
+                catalogo  = str(row.get("Número de catálogo",    row.get("catalogNumber",    "—")))
+                especie   = str(row.get("Nombre científico",     row.get("scientificName",   "—")))
+                municipio = str(row.get("*Municipio",            row.get("county",           "—")))
+                depto     = str(row.get("*Departamento",         row.get("stateProvince",    "—")))
+                localidad = str(row.get("*Localidad estandarizada", row.get("locality",     "—")))
+                nivel_ini = row.get("Nivel_inicial", row.get("Nivel de calidad inicial", "—"))
+                nivel_fin = row.get("Nivel_final",   row.get("Nivel de calidad final",   "—"))
+                muni_det  = str(row.get("municipio_detectado", "—"))
+                depto_det = str(row.get("depto_detectado",     "—"))
+                incert    = str(row.get("Incertidumbre de coordenadas (m)", row.get("coordinateUncertaintyInMeters", "—")))
+                elev      = str(row.get("Elevación mínima (msnm)", row.get("minimumElevationInMeters", "—")))
+                elev_api  = str(row.get("elevacion_api", "—"))
+                elev_est  = str(row.get("elevacion_estado", ""))
+                elev_nota = str(row.get("elevacion_nota", ""))
+                fecha     = str(row.get("Fecha",     row.get("eventDate", "—")))
+                colector  = str(row.get("Colector",  row.get("recordedBy", "—")))
+                origen    = str(row.get("Origen",    "—"))
+
+                popup_html = f"""
+                <div style="font-family:'DM Sans',sans-serif;min-width:240px;max-width:300px;font-size:13px;padding:6px 4px">
+                  <div style="font-weight:700;font-size:14px;color:#1a1a1a;margin-bottom:2px">{catalogo}</div>
+                  <div style="font-style:italic;color:#555;margin-bottom:10px;font-size:13px">{especie}</div>
+
+                  <div style="background:#f0f4ec;border-radius:6px;padding:8px 10px;margin-bottom:8px">
+                    <div style="font-weight:600;font-size:11px;color:#4A7C2F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Localidad</div>
+                    <div style="color:#333;font-size:12px">{localidad}</div>
+                    <div style="margin-top:4px;color:#666;font-size:12px">{municipio}, {depto}</div>
+                  </div>
+
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+                    <div style="background:#fafafa;border:1px solid #e8e8e8;border-radius:4px;padding:6px 8px">
+                      <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em">Nivel inicial</div>
+                      <div style="font-size:16px;font-weight:600;color:#2D5016">{nivel_ini}</div>
+                    </div>
+                    <div style="background:#fafafa;border:1px solid #e8e8e8;border-radius:4px;padding:6px 8px">
+                      <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em">Nivel final</div>
+                      <div style="font-size:16px;font-weight:600;color:#2D5016">{nivel_fin}</div>
+                    </div>
+                  </div>
+
+                  <div style="background:#fafafa;border:1px solid #e8e8e8;border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:12px">
                     <div><b>Coordenadas:</b> {lat:.5f}, {lon:.5f}</div>
-                    <div><b>Nivel:</b> {nivel}</div>
-                    <div style="margin-top:6px;padding:4px 8px;background:#f5f5f5;border-radius:4px;font-size:11px">{val_desc}</div>
+                    <div><b>Incertidumbre:</b> {incert} m</div>
+                    <div><b>Municipio detectado:</b> {muni_det}, {depto_det}</div>
+                    <div><b>Elevación reportada:</b> {elev} msnm</div>
+                    <div><b>Elevación API:</b> {elev_api} msnm {("⚠" if elev_est=="Revisar" else "✓") if elev_api != "—" else ""}</div>
+                  </div>
+
+                  <div style="padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;
+                              background:{'#E8F5E0' if 'OK' in vdesc else '#FEF3C7' if 'vecino' in vdesc else '#FEE2E2'};
+                              color:{'#2D5016' if 'OK' in vdesc else '#7C5A00' if 'vecino' in vdesc else '#7F1D1D'}">
+                    {val} — {vdesc}
+                  </div>
+
+                  <div style="margin-top:8px;font-size:11px;color:#aaa">
+                    {fecha} · {colector} · {origen}
                   </div>
                 </div>"""
 
                 folium.CircleMarker(
-                    location=[lat,lon], radius=6,
+                    location=[lat, lon], radius=6,
                     color="white", weight=1.5,
                     fill=True, fill_color=color, fill_opacity=0.9,
-                    popup=folium.Popup(popup, max_width=280),
-                    tooltip=f"{catalogo} — {especie}",
+                    popup=folium.Popup(popup_html, max_width=320),
+                    tooltip=f"{catalogo} · {especie} · Nivel {nivel_fin}",
                 ).add_to(cluster)
                 n_puntos += 1
 
             folium.LayerControl().add_to(m)
-            st.caption(f"Mostrando {n_puntos} puntos")
+            st.caption(f"Mostrando **{n_puntos}** puntos · Verde = OK · Naranja = Revisar · Rojo = Error")
             st_folium(m, width="100%", height=520, returned_objects=[])
 
         except ImportError:
@@ -700,7 +551,7 @@ else:
             default=[f"Nivel {int(n)}" for n in niveles_disp],
         )
         niveles_sel = [int(x.split()[-1]) for x in filtro_niv]
-        df_t = df[df["Nivel_final"].isin(niveles_sel)][cols_ok]
+        df_t = df[df["Nivel_final"].isin(niveles_sel)][cols_ok] if cols_ok else df[df["Nivel_final"].isin(niveles_sel)]
 
         st.dataframe(df_t, use_container_width=True, height=500, hide_index=True)
         st.caption(f"{len(df_t)} de {total} registros")
