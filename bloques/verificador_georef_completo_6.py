@@ -1580,6 +1580,12 @@ def aplicar_bloque9(df, ruta_gadm, idioma=None, usar_nominatim=True):
     print(f"    Con centroide provisional (fallback):  {fallback}")
     print(f"    Sin resultado (municipio no encontrado): {sin_resultado}")
 
+    # Garantizar que las columnas en español siempre existan en el DataFrame
+    for col_es, col_clave in [("Latitud georreferenciada",  "lat_final"),
+                               ("Longitud georreferenciada", "lon_final")]:
+        if col_es not in df.columns:
+            df[col_es] = df[cols[col_clave]] if cols[col_clave] in df.columns else ""
+
     return df
 
 
