@@ -800,12 +800,12 @@ def verificar_localidad(verbatim, locality):
 
     # Sin localidad original — aplicar 3 casos
     if sin_locality:
-        return "Error", "Caso 2",
-        "Sin localidad original y sin localidad estandarizada — no se realizó estandarización"
+        return "Error", "Caso 2", \
+            "Sin localidad original y sin localidad estandarizada — no se realizó estandarización"
 
     if loc_str in ("sin datos", "sin dato", "sd"):
-        return "OK", "Caso 1",
-        "Sin localidad original — estandarizada correctamente como 'Sin datos'"
+        return "OK", "Caso 1", \
+            "Sin localidad original — estandarizada correctamente como 'Sin datos'"
 
     return "Revisar", "Caso 3", \
         f"Sin localidad original pero estandarizada tiene información: '{str(locality)[:60]}' — verificar"
