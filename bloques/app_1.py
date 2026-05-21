@@ -336,9 +336,13 @@ else:
     n2_6  = int(df["Nivel_final"].isin([2,3,4,5,6]).sum())
     n7    = int((df["Nivel_final"] == 7).sum())
 
-    col_val = "validacion_b2" if "validacion_b2" in df.columns else ""
+    col_val = (
+        "Resultado validación espacial" if "Resultado validación espacial" in df.columns
+        else "validacion_b2" if "validacion_b2" in df.columns
+        else ""
+    )
 
-    # ── FIX: contadores con contains para soportar emojis Y texto corchete ──
+    # FIX: str.contains para soportar emojis Y texto corchete
     if col_val:
         val_ok  = int(df[col_val].str.contains("OK|✅",     na=False).sum())
         val_rev = int(df[col_val].str.contains("Revisar|⚠", na=False).sum())
@@ -416,8 +420,8 @@ else:
                 options={"maxClusterRadius":40,"disableClusteringAtZoom":12}
             ).add_to(m)
 
-            col_lat = "lat_wgs84" if "lat_wgs84" in df_m.columns else "lat_decimal_calculada"
-            col_lon = "lon_wgs84" if "lon_wgs84" in df_m.columns else "lon_decimal_calculada"
+            col_lat = next((c for c in ["Latitud georreferenciada", "lat_wgs84", "lat_decimal_calculada"] if c in df_m.columns), "lat_decimal_calculada")
+            col_lon = next((c for c in ["Longitud georreferenciada", "lon_wgs84", "lon_decimal_calculada"] if c in df_m.columns), "lon_decimal_calculada")
 
             n_puntos = 0
             for _, row in df_m.iterrows():
