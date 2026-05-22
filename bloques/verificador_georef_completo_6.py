@@ -1924,9 +1924,11 @@ def preparar_coordenadas(df, idioma):
     col_lat_f = cols["lat_final"]
     col_lon_f = cols["lon_final"]
 
-    # Crear columnas destino como tipo string (object) desde el inicio
-    df[col_lat_f] = ""
-    df[col_lon_f] = ""
+    # Crear columnas destino solo si no existen (preservar centroides ya asignados)
+    if col_lat_f not in df.columns:
+        df[col_lat_f] = ""
+    if col_lon_f not in df.columns:
+        df[col_lon_f] = ""
 
     mask = (
         df[col_lat_o].notna() &
@@ -1944,8 +1946,8 @@ def preparar_coordenadas(df, idioma):
     )
     df[col_lat_f] = df[col_lat_f].astype(str)
     df[col_lon_f] = df[col_lon_f].astype(str)
-    df.loc[mask, col_lat_f] = lats.astype(str)
-    df.loc[mask, col_lon_f] = lons.astype(str)
+    df.loc[mask & (df[col_lat_f].str.strip() == ""), col_lat_f] = lats.astype(str)
+    df.loc[mask & (df[col_lon_f].str.strip() == ""), col_lon_f] = lons.astype(str)
 
     # Si bloque 8 calculó lat_wgs84, usar esa (más precisa)
     if 'lat_wgs84' in df.columns:
