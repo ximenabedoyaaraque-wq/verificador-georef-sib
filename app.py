@@ -154,6 +154,118 @@ def _val_desc(val: str) -> str:
     if "Error" in v or "❌" in v:   return "Fuera de Colombia o municipio incorrecto"
     return "Sin validación espacial"
 
+def _post_procesar_universal(df, gadm_path=None):
+    """Incertidumbre, centroides GADM para niveles 2-6 y comentarios detallados."""
+    import re as _re, unicodedata as _ud
+
+    df = df.copy()
+
+    def _norm(t):
+        if pd.isna(t): return ""
+        t = _ud.normalize("NFD", str(t).strip())
+        return "".join(c for c in t if _ud.category(c) != "Mn").lower()
+
+    # 1. Incertidumbre de coordenadas
+    def _calc_inc(row):
+        datum = str(row.get("Datum", "")).strip()
+        fmt   = str(row.get("formato_coordenada", "")).strip()
+        if not fmt:
+            s = str(row.get("Latitud original", "")).strip().replace(".0", "")
+            if "''" in s:                        fmt = "GMS"
+            elif "°" in s:                       fmt = "GMD"
+            elif _re.match(r"^-?\d{5,10}$", s): fmt = "entero sin punto"
+            else:
+                try:    float(s); fmt = "decimal"
+                except: fmt = ""
+        inc_d = 500 if datum in ("", "nan", "WGS 84 (asumido)") else 0
+        inc_c = {"GMS": 44, "GMD": 262, "entero sin punto": 2, "decimal": 157}.get(fmt, 0)
+        total = inc_d + inc_c
+        return int(total) if total > 0 else None
+
+    df["Incertidumbre de coordenadas (m)"] = df.apply(_calc_inc, axis=1)
+
+    # 2. Centroides GADM para niveles 2-6 sin coordenada asignada
+    for col in ("Latitud georreferenciada", "Longitud georreferenciada"):
+        if col not in df.columns:
+            df[col] = ""
+    df["Latitud georreferenciada"]  = df["Latitud georreferenciada"].astype(object)
+    df["Longitud georreferenciada"] = df["Longitud georreferenciada"].astype(object)
+
+    sin_coord_mask = (
+        df["Nivel_final"].isin([2, 3, 4, 5, 6]) &
+        (df["Latitud georreferenciada"].isna() |
+         df["Latitud georreferenciada"].astype(str).str.strip().isin(["", "nan"]))
+    )
+
+    muni_dict  = {}
+    depto_dict = {}
+    if sin_coord_mask.any() and gadm_path and os.path.exists(gadm_path):
+        try:
+            import geopandas as gpd
+            gdf = gpd.read_file(gadm_path)
+            for _, grow in gdf.iterrows():
+                k = _norm(str(grow.get("NAME_2", "")))
+                if k and k not in muni_dict:
+                    c = grow.geometry.centroid
+                    muni_dict[k] = (round(c.y, 6), round(c.x, 6))
+            for _, grow in gdf.iterrows():
+                k = _norm(str(grow.get("NAME_1", "")))
+                if k and k not in depto_dict:
+                    c = grow.geometry.centroid
+                    depto_dict[k] = (round(c.y, 6), round(c.x, 6))
+        except Exception:
+            pass
+
+    _COL = (4.5709, -74.2973)
+    for idx in df[sin_coord_mask].index:
+        muni  = _norm(str(df.at[idx, "*Municipio"])    if "*Municipio"    in df.columns else "")
+        depto = _norm(str(df.at[idx, "*Departamento"]) if "*Departamento" in df.columns else "")
+        coords = muni_dict.get(muni) or depto_dict.get(depto) or _COL
+        df.at[idx, "Latitud georreferenciada"]  = coords[0]
+        df.at[idx, "Longitud georreferenciada"] = coords[1]
+
+    # 3. Comentarios detallados por resultado de validación
+    _col_val = (
+        "Resultado validación espacial" if "Resultado validación espacial" in df.columns
+        else "validacion_b2" if "validacion_b2" in df.columns
+        else ""
+    )
+
+    def _comentario(row):
+        com      = str(row.get("Comentarios de la georreferenciación", "")).strip()
+        nivel    = int(row.get("Nivel_final", 0) or 0)
+        val      = str(row.get(_col_val, "")).strip() if _col_val else ""
+        muni_det = str(row.get("municipio_detectado", "")).strip()
+        lat_o    = str(row.get("Latitud original", "")).strip()
+        fmt      = str(row.get("formato_coordenada", "")).strip()
+
+        if nivel == 7:
+            return com
+
+        if "OK" in val or "✅" in val:
+            suf = ("[✓] OK — coordenada validada dentro del municipio reportado. "
+                   "El punto es consistente con la localidad registrada.")
+        elif "Revisar" in val or "⚠" in val or "[!]" in val:
+            suf = (f"[!] REQUIERE REVISIÓN — la coordenada cae en municipio diferente al reportado "
+                   f"({muni_det}). Verificar: error de digitación, municipio registrado incorrectamente, "
+                   f"o localidad en límite entre municipios.")
+        elif "Error" in val or "❌" in val or "[X]" in val:
+            suf = (f"[X] ERROR — la coordenada no corresponde al municipio reportado. "
+                   f"Puede caer fuera de Colombia o en una región muy distante. "
+                   f"Valor original: {lat_o} (formato: {fmt}). Municipio detectado: {muni_det}. "
+                   f"Requiere corrección manual antes de publicar.")
+        elif str(lat_o) in ("", "nan") or "no se pudo" in com.lower():
+            suf = (f"[~] COORDENADA PENDIENTE — el valor original '{lat_o}' no pudo convertirse a decimal. "
+                   f"Revisar el registro original y corregir manualmente.")
+        else:
+            return com
+
+        sep = " | " if com else ""
+        return com + sep + suf
+
+    df["Comentarios de la georreferenciación"] = df.apply(_comentario, axis=1)
+    return df
+
 # ── Sidebar ────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
@@ -173,7 +285,13 @@ with st.sidebar:
 
     gadm_ok = GADM_PATH is not None and os.path.exists(GADM_PATH)
     if gadm_ok:
-        st.markdown('<div class="pill pill-ok">✓ &nbsp;Capa GADM Colombia activa</div>', unsafe_allow_html=True)
+        _gadm_mb   = os.path.getsize(GADM_PATH) / 1_048_576
+        _gadm_big  = _gadm_mb >= 10
+        _gadm_lbl  = f"✓ &nbsp;Capa GADM Colombia activa ({_gadm_mb:.1f} MB)"
+        _gadm_cls  = "pill-ok" if _gadm_big else "pill-warn"
+        if not _gadm_big:
+            _gadm_lbl = f"⚠ &nbsp;GADM presente pero &lt; 10 MB ({_gadm_mb:.1f} MB)"
+        st.markdown(f'<div class="pill {_gadm_cls}">{_gadm_lbl}</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="pill pill-warn">⚠ &nbsp;GADM no encontrado — validación espacial limitada</div>', unsafe_allow_html=True)
 
@@ -210,7 +328,6 @@ if ejecutar and file_180 and file_84:
                 aplicar_bloque1, aplicar_bloque3, aplicar_bloque5,
                 aplicar_bloque6, aplicar_bloque7, aplicar_bloque8,
                 aplicar_bloque9, aplicar_bloque10,
-                aplicar_post_procesamiento,
             )
 
             with open("/tmp/base_180.xlsx", "wb") as f: f.write(file_180.read())
@@ -257,8 +374,8 @@ if ejecutar and file_180 and file_84:
                     {"OK": "[✓] OK", "Revisar": "[!] Revisar"}).fillna("")
                 df["Nota elevación"]         = df["elevacion_nota"]
 
-            prog.progress(85, text="Post-procesamiento: incertidumbre, coordenadas y comentarios…")
-            df = aplicar_post_procesamiento(df)
+            prog.progress(85, text="Post-procesamiento: incertidumbre, centroides GADM y comentarios…")
+            df = _post_procesar_universal(df, GADM_PATH)
 
             prog.progress(90, text="Generando reporte Excel…")
             st.session_state.excel_bytes = aplicar_bloque10(df, idioma=None)
