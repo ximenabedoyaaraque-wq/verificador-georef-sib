@@ -368,11 +368,13 @@ if ejecutar and file_180 and file_84:
                     {"OK": "[✓] OK", "Revisar": "[!] Revisar"}).fillna("")
                 df["Nota elevación"]         = df["elevacion_nota"]
 
-            prog.progress(85, text="Post-procesamiento: incertidumbre, centroides GADM y comentarios…")
-            df = _post_procesar_universal(df, GADM_PATH)
-
-            prog.progress(90, text="Generando reporte Excel…")
+            prog.progress(85, text="Generando reporte Excel…")
             st.session_state.excel_bytes = aplicar_bloque10(df, idioma=None)
+
+            prog.progress(90, text="Post-procesamiento: incertidumbre, centroides GADM y comentarios…")
+            df = _post_procesar_universal(df, GADM_PATH)
+            st.session_state.excel_bytes = aplicar_bloque10(df, idioma=None)
+
             st.session_state.df_resultado = df
             st.session_state.procesado    = True
             prog.progress(100, text="¡Listo!")
