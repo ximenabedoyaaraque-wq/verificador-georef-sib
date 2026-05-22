@@ -210,7 +210,7 @@ if ejecutar and file_180 and file_84:
                 aplicar_bloque1, aplicar_bloque3, aplicar_bloque5,
                 aplicar_bloque6, aplicar_bloque7, aplicar_bloque8,
                 aplicar_bloque9, aplicar_bloque10,
-                calcular_incertidumbre_total,
+                aplicar_post_procesamiento,
             )
 
             with open("/tmp/base_180.xlsx", "wb") as f: f.write(file_180.read())
@@ -250,58 +250,17 @@ if ejecutar and file_180 and file_84:
             if gadm_ok and GADM_PATH:
                 df = aplicar_bloque9(df, GADM_PATH, usar_nominatim=True)
 
-            prog.progress(82, text="Calculando incertidumbre…")
-            try:
-                from verificador_georef_completo_6 import (
-                    incertidumbre_por_formato as _inc_fmt
-                )
-                def _calc_inc(row):
-                    datum  = str(row.get("Datum", "")).strip()
-                    fmt    = str(row.get("formato_coordenada", ""))
-                    lat_o  = row.get("Latitud original")
-                    inc_d  = 500 if datum in ("", "nan", "WGS 84 (asumido)") else 0
-                    inc_c  = _inc_fmt(lat_o, fmt) or 0
-                    total  = inc_d + inc_c
-                    return int(total) if total > 0 else None
-                df["Incertidumbre de coordenadas (m)"] = df.apply(_calc_inc, axis=1)
-            except Exception as _e:
-                st.warning(f"Incertidumbre no calculada: {_e}")
-
             # Sacar elevación API de columnas internas → columnas visibles en Excel
             if "elevacion_api" in df.columns:
-                df["Elevación API (msnm)"]        = df["elevacion_api"]
-                df["Validación elevación"]         = df["elevacion_estado"].map(
+                df["Elevación API (msnm)"]  = df["elevacion_api"]
+                df["Validación elevación"]   = df["elevacion_estado"].map(
                     {"OK": "[✓] OK", "Revisar": "[!] Revisar"}).fillna("")
-                df["Nota elevación"]               = df["elevacion_nota"]
+                df["Nota elevación"]         = df["elevacion_nota"]
+
+            prog.progress(85, text="Post-procesamiento: incertidumbre, coordenadas y comentarios…")
+            df = aplicar_post_procesamiento(df)
 
             prog.progress(90, text="Generando reporte Excel…")
-            # Calcular incertidumbre aquí — último momento antes del Excel
-            # No depende de formato_coordenada — usa lat_original directamente
-            import re as _re
-            def _inc_directo(row):
-                datum = str(row.get("Datum", "")).strip()
-                lat_o = row.get("Latitud original", row.get("verbatimLatitude"))
-                fmt   = str(row.get("formato_coordenada", "")).strip()
-                # Detectar formato si está vacío
-                if not fmt and not pd.isna(lat_o):
-                    s = str(lat_o).strip().replace(".0", "")
-                    if "''" in s:           fmt = "GMS"
-                    elif "°" in s:          fmt = "GMD"
-                    elif _re.match(r"^-?\d{5,10}$", s): fmt = "entero sin punto"
-                    else:
-                        try: float(s); fmt = "decimal"
-                        except: fmt = ""
-                # Incertidumbre por datum
-                inc_d = 500 if datum in ("", "nan", "WGS 84 (asumido)") else 0
-                # Incertidumbre por formato
-                _T = {"GMS":44,"GMD":262,"entero sin punto":2,"decimal":157}
-                inc_c = _T.get(fmt, 0)
-                total = inc_d + inc_c
-                return int(total) if total > 0 else None
-            df["Incertidumbre de coordenadas (m)"] = df.apply(_inc_directo, axis=1)
-            st.write("DEBUG incertidumbre:", df["Incertidumbre de coordenadas (m)"].value_counts().head(5).to_dict())
-            st.write("DEBUG lat_original muestra:", df["Latitud original"].head(3).tolist())
-            st.write("DEBUG formato muestra:", df["formato_coordenada"].head(3).tolist() if "formato_coordenada" in df.columns else "COLUMNA NO EXISTE")
             st.session_state.excel_bytes = aplicar_bloque10(df, idioma=None)
             st.session_state.df_resultado = df
             st.session_state.procesado    = True

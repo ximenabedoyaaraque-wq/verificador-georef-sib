@@ -1590,6 +1590,105 @@ def aplicar_bloque9(df, ruta_gadm, idioma=None, usar_nominatim=True):
 
 
 # ─────────────────────────────────────────────────────────────────
+# POST-PROCESAMIENTO FINAL
+# ─────────────────────────────────────────────────────────────────
+
+import re as _re, unicodedata as _ud
+
+def _norm(t):
+    if pd.isna(t): return ""
+    t = _ud.normalize("NFD", str(t).strip())
+    return "".join(c for c in t if _ud.category(c) != "Mn").lower()
+
+_CENTROIDES = {
+    "amalfi":(6.9128,-75.0753),"medellin":(6.2442,-75.5812),
+    "apartado":(7.8839,-76.6274),"caldas":(6.0939,-75.6358),
+    "puerto berrio":(6.4943,-74.4041),"caucasia":(7.9858,-75.1972),
+    "maceo":(6.5494,-74.7739),"pereira":(4.8143,-75.6946),
+    "montelibano":(7.9814,-75.4322),"la playa de belen":(8.0003,-73.2022),
+    "urrao":(6.3225,-76.1328),"belmira":(6.6078,-75.6642),
+    "la pintada":(5.7486,-75.5961),"jardin":(5.5983,-75.8214),
+    "sabaneta":(6.1508,-75.6169),"briseno":(6.8397,-75.5253),
+    "barbosa":(6.4378,-75.3322),"ituango":(7.1675,-75.7600),
+    "dibulla":(11.2711,-73.3089),"cucuta":(7.8939,-72.5078),
+    "frontino":(6.7783,-76.1303),"concordia":(6.0442,-75.9053),
+    "san onofre":(9.7364,-75.5317),"envigado":(6.1675,-75.5908),
+}
+
+def _inc(row):
+    datum = str(row.get("Datum","")).strip()
+    fmt = str(row.get("formato_coordenada","")).strip()
+    if not fmt:
+        s = str(row.get("Latitud original","")).strip().replace(".0","")
+        if "''" in s: fmt="GMS"
+        elif "°" in s: fmt="GMD"
+        elif _re.match(r"^-?\d{5,10}$",s): fmt="entero sin punto"
+        else:
+            try: float(s); fmt="decimal"
+            except: fmt=""
+    inc_d = 500 if datum in ("","nan","WGS 84 (asumido)") else 0
+    inc_c = {"GMS":44,"GMD":262,"entero sin punto":2,"decimal":157}.get(fmt,0)
+    total = inc_d + inc_c
+    return int(total) if total > 0 else None
+
+def _comentario_val(row):
+    val = str(row.get("Resultado validación espacial", row.get("validacion_b2",""))).strip()
+    nivel = int(row.get("Nivel_final", row.get("Nivel de calidad final", 0)))
+    muni = str(row.get("*Municipio","")).strip()
+    muni_det = str(row.get("municipio_detectado","")).strip()
+    lat_o = str(row.get("Latitud original","")).strip()
+    fmt = str(row.get("formato_coordenada","")).strip()
+    com = str(row.get("Comentarios de la georreferenciación","")).strip()
+    if nivel == 7:
+        return com
+    if "Revisar" in val or "⚠" in val or "[!]" in val:
+        return (com + f" | REQUIERE REVISIÓN: la coordenada cae en {muni_det} en lugar de {muni}. "
+                "Verificar: (1) error de digitación en la coordenada original, "
+                "(2) municipio registrado incorrectamente, "
+                "(3) localidad en límite entre municipios. "
+                "Revisar en el visor cartográfico y corregir el campo correspondiente.")
+    if "Error" in val or "❌" in val or "[X]" in val:
+        return (com + f" | ERROR: coordenada fuera de Colombia. Valor original: {lat_o} (formato: {fmt}). "
+                "Causas posibles: dígitos faltantes, signo negativo ausente en longitud, "
+                "o sistema de referencia diferente. Requiere corrección manual antes de publicar.")
+    if str(lat_o) in ("","nan") or "no se pudo" in com.lower():
+        return (com + f" | COORDENADA PENDIENTE: el valor '{lat_o}' no pudo convertirse. "
+                "El sistema no pudo determinar la posición del punto decimal. "
+                "Revisar el registro original de campo y corregir manualmente.")
+    return com
+
+
+def aplicar_post_procesamiento(df):
+    df = df.copy()
+
+    # 1. Incertidumbre de coordenadas
+    df["Incertidumbre de coordenadas (m)"] = df.apply(_inc, axis=1)
+
+    # 2. Coordenadas para niveles 2-6 sin coordenada asignada (fallback CENTROIDES)
+    for col in ("Latitud georreferenciada", "Longitud georreferenciada"):
+        if col not in df.columns:
+            df[col] = ""
+    df["Latitud georreferenciada"]  = df["Latitud georreferenciada"].astype(object)
+    df["Longitud georreferenciada"] = df["Longitud georreferenciada"].astype(object)
+
+    for _idx in df[df["Nivel_final"].isin([2, 3, 4, 5, 6])].index:
+        _row = df.loc[_idx]
+        _lat_g = _row.get("Latitud georreferenciada", "")
+        if pd.notna(_lat_g) and str(_lat_g).strip() not in ("", "nan"):
+            continue
+        _muni = _norm(str(_row.get("*Municipio", "")))
+        _coords = _CENTROIDES.get(_muni)
+        if _coords:
+            df.at[_idx, "Latitud georreferenciada"]  = round(_coords[0], 6)
+            df.at[_idx, "Longitud georreferenciada"] = round(_coords[1], 6)
+
+    # 3. Comentarios enriquecidos por resultado de validación
+    df["Comentarios de la georreferenciación"] = df.apply(_comentario_val, axis=1)
+
+    return df
+
+
+# ─────────────────────────────────────────────────────────────────
 # PRUEBA con datos reales
 # ─────────────────────────────────────────────────────────────────
 

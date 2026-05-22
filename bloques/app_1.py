@@ -210,7 +210,7 @@ if ejecutar and file_180 and file_84:
                 aplicar_bloque1, aplicar_bloque3, aplicar_bloque5,
                 aplicar_bloque6, aplicar_bloque7, aplicar_bloque8,
                 aplicar_bloque9, aplicar_bloque10,
-                calcular_incertidumbre_total,
+                aplicar_post_procesamiento,
             )
 
             with open("/tmp/base_180.xlsx", "wb") as f: f.write(file_180.read())
@@ -250,22 +250,8 @@ if ejecutar and file_180 and file_84:
             if gadm_ok and GADM_PATH:
                 df = aplicar_bloque9(df, GADM_PATH, usar_nominatim=True)
 
-            prog.progress(82, text="Calculando incertidumbre…")
-            try:
-                from verificador_georef_completo_6 import (
-                    incertidumbre_por_formato as _inc_fmt
-                )
-                def _calc_inc(row):
-                    datum  = str(row.get("Datum", "")).strip()
-                    fmt    = str(row.get("formato_coordenada", ""))
-                    lat_o  = row.get("Latitud original")
-                    inc_d  = 500 if datum in ("", "nan", "WGS 84 (asumido)") else 0
-                    inc_c  = _inc_fmt(lat_o, fmt) or 0
-                    total  = inc_d + inc_c
-                    return int(total) if total > 0 else None
-                df["Incertidumbre de coordenadas (m)"] = df.apply(_calc_inc, axis=1)
-            except Exception as _e:
-                st.warning(f"Incertidumbre no calculada: {_e}")
+            prog.progress(82, text="Post-procesamiento: incertidumbre, coordenadas y comentarios…")
+            df = aplicar_post_procesamiento(df)
 
             # Sacar elevación API de columnas internas → columnas visibles en Excel
             if "elevacion_api" in df.columns:
