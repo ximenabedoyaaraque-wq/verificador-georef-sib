@@ -540,34 +540,37 @@ else:
                 color    = _val_color(val)
                 vdesc    = _val_desc(val)
 
-                # ── Datos del popup (con fallbacks robustos) ──
-                catalogo  = str(row.get("Número de catálogo",    row.get("catalogNumber",    "—")))
-                especie   = str(row.get("Nombre científico",     row.get("scientificName",   "—")))
-                municipio = str(row.get("*Municipio",            row.get("county",           "—")))
-                depto     = str(row.get("*Departamento",         row.get("stateProvince",    "—")))
-                localidad = str(row.get("*Localidad estandarizada", row.get("locality",     "—")))
+                # ── Datos del popup ──
+                catalogo  = str(row.get("Número de catálogo",       row.get("catalogNumber",  "—")))
+                especie   = str(row.get("Nombre científico",         row.get("scientificName", "—")))
+                municipio = str(row.get("*Municipio",                row.get("county",         "—")))
+                depto     = str(row.get("*Departamento",             row.get("stateProvince",  "—")))
+                localidad = str(row.get("*Localidad estandarizada",  row.get("locality",       "—")))
                 nivel_ini = row.get("Nivel_inicial", row.get("Nivel de calidad inicial", "—"))
                 nivel_fin = row.get("Nivel_final",   row.get("Nivel de calidad final",   "—"))
                 muni_det  = str(row.get("municipio_detectado", "—"))
-                depto_det = str(row.get("depto_detectado",     "—"))
                 incert    = str(row.get("Incertidumbre de coordenadas (m)", row.get("coordinateUncertaintyInMeters", "—")))
                 elev      = str(row.get("Elevación mínima (msnm)", row.get("minimumElevationInMeters", "—")))
-                elev_api  = str(row.get("elevacion_api", "—"))
-                elev_est  = str(row.get("elevacion_estado", ""))
-                elev_nota = str(row.get("elevacion_nota", ""))
-                fecha     = str(row.get("Fecha",     row.get("eventDate", "—")))
-                colector  = str(row.get("Colector",  row.get("recordedBy", "—")))
-                origen    = str(row.get("Origen",    "—"))
+
+                if "OK" in val or "✅" in val:
+                    val_sym, val_bg, val_fg = "[✓]", "#E8F5E0", "#2D5016"
+                elif "Revisar" in val or "⚠" in val:
+                    val_sym, val_bg, val_fg = "[!]", "#FEF3C7", "#7C5A00"
+                elif "Error" in val or "❌" in val:
+                    val_sym, val_bg, val_fg = "[X]", "#FEE2E2", "#7F1D1D"
+                else:
+                    val_sym, val_bg, val_fg = "[~]", "#F3F4F6", "#6B7280"
 
                 popup_html = f"""
-                <div style="font-family:'DM Sans',sans-serif;min-width:240px;max-width:300px;font-size:13px;padding:6px 4px">
+                <div style="font-family:'DM Sans',sans-serif;min-width:240px;max-width:320px;font-size:13px;padding:6px 4px">
                   <div style="font-weight:700;font-size:14px;color:#1a1a1a;margin-bottom:2px">{catalogo}</div>
                   <div style="font-style:italic;color:#555;margin-bottom:10px;font-size:13px">{especie}</div>
 
                   <div style="background:#f0f4ec;border-radius:6px;padding:8px 10px;margin-bottom:8px">
                     <div style="font-weight:600;font-size:11px;color:#4A7C2F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Localidad</div>
                     <div style="color:#333;font-size:12px">{localidad}</div>
-                    <div style="margin-top:4px;color:#666;font-size:12px">{municipio}, {depto}</div>
+                    <div style="margin-top:4px;color:#555;font-size:12px"><b>Municipio reportado:</b> {municipio}, {depto}</div>
+                    <div style="color:#555;font-size:12px"><b>Municipio detectado GADM:</b> {muni_det}</div>
                   </div>
 
                   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
@@ -582,21 +585,14 @@ else:
                   </div>
 
                   <div style="background:#fafafa;border:1px solid #e8e8e8;border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:12px">
-                    <div><b>Coordenadas:</b> {lat:.5f}, {lon:.5f}</div>
+                    <div><b>Coordenadas finales:</b> {lat:.5f}, {lon:.5f}</div>
                     <div><b>Incertidumbre:</b> {incert} m</div>
-                    <div><b>Municipio detectado:</b> {muni_det}, {depto_det}</div>
                     <div><b>Elevación reportada:</b> {elev} msnm</div>
-                    <div><b>Elevación API:</b> {elev_api} msnm {("⚠" if elev_est=="Revisar" else "✓") if elev_api != "—" else ""}</div>
                   </div>
 
-                  <div style="padding:5px 10px;border-radius:4px;font-size:11px;font-weight:600;
-                              background:{'#E8F5E0' if 'OK' in vdesc else '#FEF3C7' if 'vecino' in vdesc else '#FEE2E2'};
-                              color:{'#2D5016' if 'OK' in vdesc else '#7C5A00' if 'vecino' in vdesc else '#7F1D1D'}">
-                    {val} — {vdesc}
-                  </div>
-
-                  <div style="margin-top:8px;font-size:11px;color:#aaa">
-                    {fecha} · {colector} · {origen}
+                  <div style="padding:6px 10px;border-radius:4px;font-size:12px;font-weight:600;
+                              background:{val_bg};color:{val_fg}">
+                    {val_sym} {vdesc}
                   </div>
                 </div>"""
 
