@@ -285,14 +285,7 @@ with st.sidebar:
 
     gadm_ok = GADM_PATH is not None and os.path.exists(GADM_PATH)
     if gadm_ok:
-        _gadm_mb  = os.path.getsize(GADM_PATH) / 1_048_576
-        _gadm_big = _gadm_mb >= 10
-        _gadm_lbl = f"✓ &nbsp;Capa GADM Colombia activa ({_gadm_mb:.1f} MB)"
-        _gadm_cls = "pill-ok"
-        if not _gadm_big:
-            _gadm_lbl = f"⚠ &nbsp;GADM presente pero &lt; 10 MB ({_gadm_mb:.1f} MB)"
-            _gadm_cls = "pill-warn"
-        st.markdown(f'<div class="pill {_gadm_cls}">{_gadm_lbl}</div>', unsafe_allow_html=True)
+        st.markdown('<div class="pill pill-ok">✓ &nbsp;Capa GADM Colombia activa</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="pill pill-warn">⚠ &nbsp;GADM no encontrado — validación espacial limitada</div>', unsafe_allow_html=True)
 
