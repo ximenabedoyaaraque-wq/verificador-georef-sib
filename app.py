@@ -191,38 +191,55 @@ def _post_procesar_universal(df, gadm_path=None):
     df["Latitud georreferenciada"]  = df["Latitud georreferenciada"].astype(object)
     df["Longitud georreferenciada"] = df["Longitud georreferenciada"].astype(object)
 
+    if "Método de georreferenciación" not in df.columns:
+        df["Método de georreferenciación"] = ""
+    df["Método de georreferenciación"] = df["Método de georreferenciación"].astype(object)
+
     sin_coord_mask = (
         df["Nivel_final"].isin([2, 3, 4, 5, 6]) &
         (df["Latitud georreferenciada"].isna() |
          df["Latitud georreferenciada"].astype(str).str.strip().isin(["", "nan"]))
     )
 
-    muni_dict  = {}
-    depto_dict = {}
+    # Matcher robusto (clave departamento+municipio, tolerante a tildes/espacios)
+    idx_geo = None
     if sin_coord_mask.any() and gadm_path and os.path.exists(gadm_path):
         try:
-            import geopandas as gpd
-            gdf = gpd.read_file(gadm_path)
-            for _, grow in gdf.iterrows():
-                k = _norm(str(grow.get("NAME_2", "")))
-                if k and k not in muni_dict:
-                    c = grow.geometry.centroid
-                    muni_dict[k] = (round(c.y, 6), round(c.x, 6))
-            for _, grow in gdf.iterrows():
-                k = _norm(str(grow.get("NAME_1", "")))
-                if k and k not in depto_dict:
-                    c = grow.geometry.centroid
-                    depto_dict[k] = (round(c.y, 6), round(c.x, 6))
+            import geo_match as _gm
+            idx_geo = _gm.construir_indices(gadm_path)
         except Exception:
-            pass
+            idx_geo = None
 
     _COL = (4.5709, -74.2973)
     for idx in df[sin_coord_mask].index:
-        muni  = _norm(str(df.at[idx, "*Municipio"])    if "*Municipio"    in df.columns else "")
-        depto = _norm(str(df.at[idx, "*Departamento"]) if "*Departamento" in df.columns else "")
-        coords = muni_dict.get(muni) or depto_dict.get(depto) or _COL
-        df.at[idx, "Latitud georreferenciada"]  = coords[0]
-        df.at[idx, "Longitud georreferenciada"] = coords[1]
+        nivel = int(df.at[idx, "Nivel_final"]) if pd.notna(df.at[idx, "Nivel_final"]) else 0
+        muni  = str(df.at[idx, "*Municipio"])    if "*Municipio"    in df.columns else ""
+        depto = str(df.at[idx, "*Departamento"]) if "*Departamento" in df.columns else ""
+        lat = lon = None
+        metodo = ""
+
+        if idx_geo is None:
+            metodo = "GADM no disponible — sin asignación"
+        elif nivel in (2, 3, 4):
+            # Nivel municipal: exige coincidencia de municipio confiable.
+            lat, lon, info = _gm.match_municipio(muni, depto, idx_geo)
+            if lat is not None:
+                metodo = f"Centroide municipio GADM ({info})"
+            else:
+                # REGLA DE ORO: NO inventar una coordenada cercana. Marcar revisión.
+                metodo = f"SIN COORDENADA — {info}"
+        elif nivel == 5:
+            lat, lon = _gm.centroide_departamento(depto, idx_geo)
+            metodo = ("Centroide departamento GADM — alta incertidumbre" if lat is not None
+                      else f"SIN COORDENADA — departamento '{depto}' no reconocido → revisar")
+        elif nivel == 6:
+            lat, lon = _COL
+            metodo = "Centroide Colombia — incertidumbre muy alta"
+
+        if lat is not None and lon is not None:
+            df.at[idx, "Latitud georreferenciada"]  = lat
+            df.at[idx, "Longitud georreferenciada"] = lon
+        df.at[idx, "Método de georreferenciación"] = metodo
 
     # 3. Comentarios detallados por resultado de validación
     _col_val = (
@@ -504,7 +521,7 @@ else:
             if filtro_res != "Todos" and col_val:
                 kw = {"✅ OK":"OK","⚠ Revisar":"Revisar","❌ Error":"Error"}.get(filtro_res,"")
                 if kw:
-                    df_m = df_m[df_m[col_val].str.contains(kw, na=False)]
+                    df_m = df_m[df_m[col_val].astype(str).str.contains(kw, case=False, na=False)]
             if filtro_dep != "Todos" and "*Departamento" in df_m.columns:
                 df_m = df_m[df_m["*Departamento"] == filtro_dep]
 
@@ -515,14 +532,90 @@ else:
                 attr="Esri", name="Satelital", overlay=False, control=True
             ).add_to(m)
 
-            cluster = MarkerCluster(
-                options={"maxClusterRadius":40,"disableClusteringAtZoom":12}
-            ).add_to(m)
+            # ── Capa del gacetero: límites municipales (GADM) ──
+            # Contorno de los 1119 municipios + nombre al acercar el zoom.
+            _muni_path = next((p for p in [
+                os.path.join(BASE_DIR, "datos", "municipios_simpl.geojson"),
+                "/mount/src/verificador-georef-sib/datos/municipios_simpl.geojson",
+                "datos/municipios_simpl.geojson",
+            ] if os.path.exists(p)), None)
+            if _muni_path:
+                _gj = folium.GeoJson(
+                    _muni_path,
+                    name="🗺️ Límites municipales (gacetero)",
+                    style_function=lambda f: {
+                        "fillColor": "#000000", "fillOpacity": 0,
+                        "color": "#4A7C2F", "weight": 0.6, "opacity": 0.55,
+                    },
+                    highlight_function=lambda f: {
+                        "weight": 2, "color": "#2D5016", "fillOpacity": 0.08,
+                    },
+                    tooltip=folium.GeoJsonTooltip(
+                        fields=["muni", "depto"],
+                        aliases=["Municipio:", "Departamento:"],
+                        sticky=True,
+                    ),
+                    show=True,
+                )
+                _gj.add_to(m)
+                # Etiquetas de nombre SOLO en municipios que tienen registros
+                # (evita encimar 1119 nombres ilegibles; el contorno sí es de todo el país).
+                try:
+                    import geopandas as _gpd
+                    _gmuni = _gpd.read_file(_muni_path)
+                    _munis_con_datos = set()
+                    if "*Municipio" in df_m.columns:
+                        import unicodedata as _u, re as _r
+                        def _nz(t):
+                            t = _u.normalize("NFD", str(t).strip())
+                            t = "".join(c for c in t if _u.category(c) != "Mn").lower()
+                            return _r.sub(r"\s+", "", _r.sub(r"[^a-z0-9]+", " ", t))
+                        _munis_con_datos = {_nz(x) for x in df_m["*Municipio"].dropna().unique()}
+                        _gmuni["_k"] = _gmuni["muni"].map(_nz)
+                        _gmuni = _gmuni[_gmuni["_k"].isin(_munis_con_datos)]
+                    _label_layer = folium.FeatureGroup(name="🔤 Nombres de municipio", show=True)
+                    _gmuni_p = _gmuni.to_crs("EPSG:3116")
+                    for (_, r), (_, rp) in zip(_gmuni.iterrows(), _gmuni_p.iterrows()):
+                        c = _gpd.GeoSeries([rp.geometry.centroid], crs="EPSG:3116").to_crs("EPSG:4326").iloc[0]
+                        folium.map.Marker(
+                            [c.y, c.x],
+                            icon=folium.DivIcon(html=(
+                                f'<div style="font-family:DM Sans,sans-serif;font-size:11px;'
+                                f'font-weight:600;color:#2D5016;white-space:nowrap;'
+                                f'text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;'
+                                f'transform:translate(-50%,-50%)">{r["muni"]}</div>'))
+                        ).add_to(_label_layer)
+                    _label_layer.add_to(m)
+                except Exception:
+                    pass
+
+            # ── Clusters coloreados por ESTADO (no por cantidad) ──
+            # Así el círculo grande tiene el mismo color que los puntos pequeños adentro.
+            def _cluster_icon(hexcolor):
+                return (
+                    "function(cluster){"
+                    "var n=cluster.getChildCount();"
+                    "return new L.DivIcon({"
+                    "html:'<div style=\"background:%s;opacity:.85;width:38px;height:38px;"
+                    "border-radius:50%%;display:flex;align-items:center;justify-content:center;"
+                    "border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.3)\">"
+                    "<span style=\"color:white;font-weight:700;font-size:13px;"
+                    "font-family:sans-serif\">'+n+'</span></div>',"
+                    "className:'mcc',iconSize:new L.Point(38,38)});}" % hexcolor
+                )
+            _opts = {"maxClusterRadius":40,"disableClusteringAtZoom":12}
+            clusters = {
+                "OK":      MarkerCluster(name="🟢 OK",              options=_opts, icon_create_function=_cluster_icon("#4A7C2F")).add_to(m),
+                "Revisar": MarkerCluster(name="🟠 Revisar",         options=_opts, icon_create_function=_cluster_icon("#D97706")).add_to(m),
+                "Error":   MarkerCluster(name="🔴 Error",           options=_opts, icon_create_function=_cluster_icon("#C0392B")).add_to(m),
+                "Sin":     MarkerCluster(name="⚪ Sin validación",   options=_opts, icon_create_function=_cluster_icon("#9CA3AF")).add_to(m),
+            }
 
             col_lat = next((c for c in ["Latitud georreferenciada", "lat_wgs84", "lat_decimal_calculada"] if c in df_m.columns), "lat_decimal_calculada")
             col_lon = next((c for c in ["Longitud georreferenciada", "lon_wgs84", "lon_decimal_calculada"] if c in df_m.columns), "lon_decimal_calculada")
 
             n_puntos = 0
+            _bounds = []
             for _, row in df_m.iterrows():
                 lat = row.get(col_lat)
                 lon = row.get(col_lon)
@@ -537,8 +630,17 @@ else:
                 vdesc    = _val_desc(val)
 
                 # ── Datos del popup ──
-                catalogo  = str(row.get("Número de catálogo",       row.get("catalogNumber",  "—")))
-                especie   = str(row.get("Nombre científico",         row.get("scientificName", "—")))
+                catalogo  = str(row.get("*Número de catálogo", row.get("Número de catálogo", row.get("catalogNumber", "")))).strip()
+                catalogo  = catalogo if catalogo and catalogo.lower() != "nan" else "—"
+                # Nombre científico: si existe la columna úsala; si no, construir Género + Epíteto
+                _sci = str(row.get("Nombre científico", row.get("scientificName", ""))).strip()
+                _gen = str(row.get("Género", row.get("genus", ""))).strip()
+                _epi = str(row.get("Epíteto", row.get("specificEpithet", ""))).strip()
+                if _sci and _sci.lower() != "nan":
+                    especie = _sci
+                else:
+                    especie = (f"{_gen} {_epi}".strip()) or "—"
+                especie = especie if especie.lower() != "nan" else "—"
                 municipio = str(row.get("*Municipio",                row.get("county",         "—")))
                 depto     = str(row.get("*Departamento",             row.get("stateProvince",  "—")))
                 localidad = str(row.get("*Localidad estandarizada",  row.get("locality",       "—")))
@@ -592,18 +694,28 @@ else:
                   </div>
                 </div>"""
 
+                if "OK" in val or "✅" in val:        _ck = "OK"
+                elif "Revisar" in val or "⚠" in val:  _ck = "Revisar"
+                elif "Error" in val or "❌" in val:    _ck = "Error"
+                else:                                  _ck = "Sin"
+
                 folium.CircleMarker(
                     location=[lat, lon], radius=6,
                     color="white", weight=1.5,
                     fill=True, fill_color=color, fill_opacity=0.9,
                     popup=folium.Popup(popup_html, max_width=320),
                     tooltip=f"{catalogo} · {especie} · Nivel {nivel_fin}",
-                ).add_to(cluster)
+                ).add_to(clusters[_ck])
+                _bounds.append([lat, lon])
                 n_puntos += 1
 
-            folium.LayerControl().add_to(m)
-            st.caption(f"Mostrando **{n_puntos}** puntos · Verde = OK · Naranja = Revisar · Rojo = Error")
-            st_folium(m, width="100%", height=520, returned_objects=[])
+            folium.LayerControl(collapsed=False).add_to(m)
+            if _bounds:
+                m.fit_bounds(_bounds, padding=(30, 30))
+            st.caption(f"Mostrando **{n_puntos}** puntos · 🟢 OK · 🟠 Revisar · 🔴 Error · ⚪ Sin validación. "
+                       f"Los círculos de agrupación usan el mismo color que los puntos.")
+            st_folium(m, width=None, height=520, returned_objects=[],
+                      key=f"visor_{filtro_res}_{filtro_dep}")
 
         except ImportError:
             st.warning("Instala streamlit-folium para activar el visor.")

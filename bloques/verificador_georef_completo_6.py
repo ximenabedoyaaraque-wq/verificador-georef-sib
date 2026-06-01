@@ -1401,23 +1401,21 @@ def geocodificar_nominatim(localidad, municipio, departamento, pais="Colombia"):
 
 def calcular_centroides_gadm(gdf_gadm):
     """
-    Pre-calcula centroides de municipios y departamentos desde GADM.
-    Retorna dos diccionarios:
-      centroides_muni[nombre_norm]  → (lat, lon)
-      centroides_depto[nombre_norm] → (lat, lon)
+    Pre-calcula centroides usando el matcher robusto geo_match.
+    Retorna dos diccionarios COMPATIBLES con el código existente, PERO la
+    asignación real se hace con geo_match (clave departamento+municipio,
+    tolerante a tildes/espacios), no con estos dicts planos.
+    Se conservan por compatibilidad con cualquier llamada externa.
     """
-    # Proyectar a EPSG:3116 para cálculo correcto, luego volver a WGS84
     gdf_proj = gdf_gadm.to_crs("EPSG:3116")
 
     centroides_muni = {}
     for _, row in gdf_proj.iterrows():
         c = row.geometry.centroid
-        # Convertir de vuelta a WGS84
         punto_wgs = gpd.GeoSeries([c], crs="EPSG:3116").to_crs("EPSG:4326").iloc[0]
         key = normalizar(row["NAME_2"])
         centroides_muni[key] = (round(punto_wgs.y, 6), round(punto_wgs.x, 6))
 
-    # Centroides de departamentos (disolver por NAME_1)
     gdf_deptos = gdf_proj.dissolve(by="NAME_1").reset_index()
     centroides_depto = {}
     for _, row in gdf_deptos.iterrows():
@@ -1457,6 +1455,14 @@ def aplicar_bloque9(df, ruta_gadm, idioma=None, usar_nominatim=True):
         gdf_gadm = gdf_gadm.set_crs("EPSG:4326")
     centroides_muni, centroides_depto = calcular_centroides_gadm(gdf_gadm)
     print(f"  Centroides: {len(centroides_muni)} municipios, {len(centroides_depto)} departamentos")
+
+    # Índice robusto (depto+municipio, tolerante a tildes/espacios). Fuente única de verdad.
+    try:
+        import geo_match as _gm
+        _idx = _gm.construir_indices(ruta_gadm)
+    except Exception as _e:
+        _gm, _idx = None, None
+        print(f"  ⚠ geo_match no disponible ({_e}); usando centroides simples como respaldo.")
 
     df = df.copy()
 
@@ -1507,41 +1513,71 @@ def aplicar_bloque9(df, ruta_gadm, idioma=None, usar_nominatim=True):
                     )
                     ok += 1
                 else:
-                    # Fallback a centroide municipio
-                    lat, lon = centroides_muni.get(normalizar(muni), (None, None))
-                    fuente = "Centroide municipio GADM v4.1 — Nominatim no disponible"
-                    comentario = (
-                        f"Nivel 2 — coordenada provisional: centroide de {muni}. "
-                        f"Georreferenciación exacta requiere verificación manual."
-                    )
-                    fallback += 1
+                    # Fallback a centroide municipio (matcher robusto)
+                    if _gm and _idx:
+                        lat, lon, _info = _gm.match_municipio(muni, depto, _idx)
+                    else:
+                        lat, lon = centroides_muni.get(normalizar(muni), (None, None)); _info = ""
+                    if lat is not None:
+                        fuente = "Centroide municipio GADM v4.1 — Nominatim no disponible"
+                        comentario = (
+                            f"Nivel 2 — coordenada provisional: centroide de {muni}. "
+                            f"Georreferenciación exacta requiere verificación manual."
+                        )
+                        fallback += 1
+                    else:
+                        # REGLA DE ORO: no inventar coordenada cercana.
+                        fuente = ""
+                        comentario = f"Nivel 2 — SIN COORDENADA: {_info or 'municipio no reconocido'} → revisar."
+                        sin_resultado += 1
             else:
-                # Sin red: directo a centroide
-                lat, lon = centroides_muni.get(normalizar(muni), (None, None))
-                fuente = "Centroide municipio GADM v4.1 (sin acceso a Nominatim)"
-                comentario = f"Nivel 2 — centroide provisional de {muni}."
-                fallback += 1
+                # Sin red: directo a centroide (matcher robusto)
+                if _gm and _idx:
+                    lat, lon, _info = _gm.match_municipio(muni, depto, _idx)
+                else:
+                    lat, lon = centroides_muni.get(normalizar(muni), (None, None)); _info = ""
+                if lat is not None:
+                    fuente = "Centroide municipio GADM v4.1 (sin acceso a Nominatim)"
+                    comentario = f"Nivel 2 — centroide provisional de {muni}."
+                    fallback += 1
+                else:
+                    fuente = ""
+                    comentario = f"Nivel 2 — SIN COORDENADA: {_info or 'municipio no reconocido'} → revisar."
+                    sin_resultado += 1
 
         # ── NIVEL 3 y 4: centroide municipio ──────────────────────
         elif nivel in [3, 4]:
-            lat, lon = centroides_muni.get(normalizar(muni), (None, None))
-            fuente = "Centroide municipio GADM v4.1 (proxy conservador)"
-            comentario = (
-                f"Nivel {nivel} — centroide de {muni}, {depto}. "
-                f"Incertidumbre = radio máximo del municipio."
-            )
-            if lat: ok += 1
-            else: sin_resultado += 1
+            if _gm and _idx:
+                lat, lon, _info = _gm.match_municipio(muni, depto, _idx)
+            else:
+                lat, lon = centroides_muni.get(normalizar(muni), (None, None)); _info = ""
+            if lat is not None:
+                fuente = "Centroide municipio GADM v4.1 (proxy conservador)"
+                comentario = (
+                    f"Nivel {nivel} — centroide de {muni}, {depto}. "
+                    f"Incertidumbre = radio máximo del municipio."
+                )
+                ok += 1
+            else:
+                # REGLA DE ORO: no inventar coordenada cercana.
+                fuente = ""
+                comentario = f"Nivel {nivel} — SIN COORDENADA: {_info or 'municipio no reconocido'} → revisar."
+                sin_resultado += 1
 
         # ── NIVEL 5: centroide departamento ───────────────────────
         elif nivel == 5:
-            lat, lon = centroides_depto.get(normalizar(depto), (None, None))
-            fuente = "Centroide departamento GADM v4.1"
-            comentario = (
-                f"Nivel 5 — centroide de {depto}. Alta incertidumbre."
-            )
-            if lat: ok += 1
-            else: sin_resultado += 1
+            if _gm and _idx:
+                lat, lon = _gm.centroide_departamento(depto, _idx)
+            else:
+                lat, lon = centroides_depto.get(normalizar(depto), (None, None))
+            if lat is not None:
+                fuente = "Centroide departamento GADM v4.1"
+                comentario = f"Nivel 5 — centroide de {depto}. Alta incertidumbre."
+                ok += 1
+            else:
+                fuente = ""
+                comentario = f"Nivel 5 — SIN COORDENADA: departamento '{depto}' no reconocido → revisar."
+                sin_resultado += 1
 
         # ── NIVEL 6: centroide Colombia ────────────────────────────
         elif nivel == 6:
