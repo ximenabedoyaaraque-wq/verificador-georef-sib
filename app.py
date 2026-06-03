@@ -138,6 +138,14 @@ _posibles_gadm = [
 ]
 GADM_PATH = next((p for p in _posibles_gadm if os.path.exists(p)), None)
 
+# Gacetero de nombres geográficos (IGAC) para la cascada del manual
+_posibles_gacetero = [
+    os.path.join(BASE_DIR, "datos", "gacetero_igac_limpio.parquet"),
+    "/mount/src/verificador-georef-sib/datos/gacetero_igac_limpio.parquet",
+    "datos/gacetero_igac_limpio.parquet",
+]
+GACETERO_PATH = next((p for p in _posibles_gacetero if os.path.exists(p)), None)
+
 # ── Helper: normalizar valor de validación ─────────
 def _val_color(val: str) -> str:
     """Devuelve color hex según el texto de validación (emojis O texto corchete)."""
@@ -154,8 +162,8 @@ def _val_desc(val: str) -> str:
     if "Error" in v or "❌" in v:   return "Fuera de Colombia o municipio incorrecto"
     return "Sin validación espacial"
 
-def _post_procesar_universal(df, gadm_path=None):
-    """Incertidumbre, centroides GADM para niveles 2-6 y comentarios detallados."""
+def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
+    """Incertidumbre, cascada de georreferenciación (manual SiB) y comentarios."""
     import re as _re, unicodedata as _ud
 
     df = df.copy()
@@ -184,62 +192,66 @@ def _post_procesar_universal(df, gadm_path=None):
 
     df["Incertidumbre de coordenadas (m)"] = df.apply(_calc_inc, axis=1)
 
-    # 2. Centroides GADM para niveles 2-6 sin coordenada asignada
+    # 2. CASCADA DE GEORREFERENCIACIÓN (manual SiB): topónimo → municipio → depto → país → marca
     for col in ("Latitud georreferenciada", "Longitud georreferenciada"):
         if col not in df.columns:
             df[col] = ""
     df["Latitud georreferenciada"]  = df["Latitud georreferenciada"].astype(object)
     df["Longitud georreferenciada"] = df["Longitud georreferenciada"].astype(object)
+    for col in ("Método de georreferenciación", "Fuentes de georreferenciación"):
+        if col not in df.columns:
+            df[col] = ""
+        df[col] = df[col].astype(object)
 
-    if "Método de georreferenciación" not in df.columns:
-        df["Método de georreferenciación"] = ""
-    df["Método de georreferenciación"] = df["Método de georreferenciación"].astype(object)
-
-    sin_coord_mask = (
-        df["Nivel_final"].isin([2, 3, 4, 5, 6]) &
-        (df["Latitud georreferenciada"].isna() |
-         df["Latitud georreferenciada"].astype(str).str.strip().isin(["", "nan"]))
-    )
-
-    # Matcher robusto (clave departamento+municipio, tolerante a tildes/espacios)
+    # Cargar cascada, gaceteros e índice GADM (una sola vez)
     idx_geo = None
-    if sin_coord_mask.any() and gadm_path and os.path.exists(gadm_path):
+    gaceteros = []
+    _cg = None
+    if gadm_path and os.path.exists(gadm_path):
         try:
             import geo_match as _gm
+            import cascada_gaceteros as _cg
             idx_geo = _gm.construir_indices(gadm_path)
-        except Exception:
+            if gacetero_path and os.path.exists(gacetero_path):
+                gaceteros.append(("IGAC", _cg.cargar_gacetero(gacetero_path)))
+        except Exception as _e:
             idx_geo = None
+            _cg = None
 
-    _COL = (4.5709, -74.2973)
-    for idx in df[sin_coord_mask].index:
-        nivel = int(df.at[idx, "Nivel_final"]) if pd.notna(df.at[idx, "Nivel_final"]) else 0
-        muni  = str(df.at[idx, "*Municipio"])    if "*Municipio"    in df.columns else ""
-        depto = str(df.at[idx, "*Departamento"]) if "*Departamento" in df.columns else ""
-        lat = lon = None
-        metodo = ""
+    def _sin_coord(i):
+        v = df.at[i, "Latitud georreferenciada"]
+        return pd.isna(v) or str(v).strip() in ("", "nan")
 
-        if idx_geo is None:
-            metodo = "GADM no disponible — sin asignación"
-        elif nivel in (2, 3, 4):
-            # Nivel municipal: exige coincidencia de municipio confiable.
-            lat, lon, info = _gm.match_municipio(muni, depto, idx_geo)
-            if lat is not None:
-                metodo = f"Centroide municipio GADM ({info})"
-            else:
-                # REGLA DE ORO: NO inventar una coordenada cercana. Marcar revisión.
-                metodo = f"SIN COORDENADA — {info}"
-        elif nivel == 5:
-            lat, lon = _gm.centroide_departamento(depto, idx_geo)
-            metodo = ("Centroide departamento GADM — alta incertidumbre" if lat is not None
-                      else f"SIN COORDENADA — departamento '{depto}' no reconocido → revisar")
-        elif nivel == 6:
-            lat, lon = _COL
-            metodo = "Centroide Colombia — incertidumbre muy alta"
+    if idx_geo is not None and _cg is not None:
+        for idx in df.index:
+            nivel = int(df.at[idx, "Nivel_final"]) if pd.notna(df.at[idx, "Nivel_final"]) else None
+            loc   = df.at[idx, "*Localidad estandarizada"] if "*Localidad estandarizada" in df.columns else ""
+            muni  = df.at[idx, "*Municipio"]    if "*Municipio"    in df.columns else ""
+            depto = df.at[idx, "*Departamento"] if "*Departamento" in df.columns else ""
 
-        if lat is not None and lon is not None:
-            df.at[idx, "Latitud georreferenciada"]  = lat
-            df.at[idx, "Longitud georreferenciada"] = lon
-        df.at[idx, "Método de georreferenciación"] = metodo
+            # Nivel 7 no se georreferencia; nivel 1 con coordenada válida se respeta
+            if nivel == 7:
+                df.at[idx, "Método de georreferenciación"] = "No se georreferencia (Nivel 7)"
+                continue
+            if nivel == 1 and not _sin_coord(idx):
+                # ya tiene coordenada propia validada; solo completar método si falta
+                if str(df.at[idx, "Método de georreferenciación"]).strip() in ("", "nan"):
+                    df.at[idx, "Método de georreferenciación"] = "Coordenada original del colector"
+                continue
+
+            res = _cg.georreferenciar_localidad(
+                loc, muni, depto, nivel, gaceteros, idx_geo,
+                _gm.match_municipio, _gm.centroide_departamento)
+
+            if res["lat"] is not None:
+                df.at[idx, "Latitud georreferenciada"]  = res["lat"]
+                df.at[idx, "Longitud georreferenciada"] = res["lon"]
+            df.at[idx, "Método de georreferenciación"] = res["metodo"]
+            if res["fuente"]:
+                df.at[idx, "Fuentes de georreferenciación"] = res["fuente"]
+            # guardar estado/detalle para los comentarios amigables
+            df.at[idx, "_cascada_estado"]  = res["estado"]
+            df.at[idx, "_cascada_detalle"] = res["detalle"]
 
     # 3. Comentarios detallados por resultado de validación
     _col_val = (
@@ -255,6 +267,16 @@ def _post_procesar_universal(df, gadm_path=None):
         muni_det = str(row.get("municipio_detectado", "")).strip()
         lat_o    = str(row.get("Latitud original", "")).strip()
         fmt      = str(row.get("formato_coordenada", "")).strip()
+
+        # Comentario AMIGABLE de la cascada (manual SiB) si está disponible
+        metodo_c  = str(row.get("Método de georreferenciación", "")).strip()
+        detalle_c = str(row.get("_cascada_detalle", "")).strip()
+        if detalle_c and detalle_c.lower() != "nan":
+            base = f"Nivel {nivel}: {metodo_c}. {detalle_c}"
+            if nivel == 7:
+                return ("Nivel 7: información dudosa o contradictoria. Según el manual, "
+                        "no se georreferencia. Requiere revisión del curador.")
+            return base
 
         if nivel == 7:
             return com
@@ -281,6 +303,10 @@ def _post_procesar_universal(df, gadm_path=None):
         return com + sep + suf
 
     df["Comentarios de la georreferenciación"] = df.apply(_comentario, axis=1)
+    # limpiar columnas internas de la cascada
+    for c in ("_cascada_estado", "_cascada_detalle"):
+        if c in df.columns:
+            df = df.drop(columns=[c])
     return df
 
 # ── Sidebar ────────────────────────────────────────
@@ -388,8 +414,8 @@ if ejecutar and file_180 and file_84:
             prog.progress(85, text="Generando reporte Excel…")
             st.session_state.excel_bytes = aplicar_bloque10(df, idioma=None)
 
-            prog.progress(90, text="Post-procesamiento: incertidumbre, centroides GADM y comentarios…")
-            df = _post_procesar_universal(df, GADM_PATH)
+            prog.progress(90, text="Post-procesamiento: cascada del manual (gacetero→municipio) y comentarios…")
+            df = _post_procesar_universal(df, GADM_PATH, GACETERO_PATH)
             st.session_state.excel_bytes = aplicar_bloque10(df, idioma=None)
 
             st.session_state.df_resultado = df
