@@ -5,16 +5,7 @@ en colecciones biológicas, basada en el protocolo del Instituto de
 Investigación de Recursos Biológicos Alexander von Humboldt e 
 Instituto de Ciencias Naturales (Universidad Nacional de Colombia).
 
-## Autoría
 
-**Ximena Bedoya Araque**  
-Estudiante de Ecología — Universidad CES  
-Pasantía en Colecciones Biológicas CBUCES  
-Medellín, Colombia
-
-© 2026 Ximena Bedoya Araque. Todos los derechos reservados.  
-Uso libre para investigación y educación no comercial.  
-Para uso comercial o redistribución, contactar al autor.
 
 ## Referencia metodológica
 
@@ -49,6 +40,17 @@ Si quieres correr el código localmente:
 
 1. `pip install -r requirements.txt`
 2. `streamlit run app.py`
+
+## Autoría
+
+**Ximena Bedoya Araque**  
+Estudiante de Ecología — Universidad CES  
+Pasantía en Colecciones Biológicas CBUCES  
+Medellín, Colombia
+
+© 2026 Ximena Bedoya Araque. Todos los derechos reservados.  
+Uso libre para investigación y educación no comercial.  
+Para uso comercial o redistribución, contactar al autor.
 
 ## Estructura del proyecto
 
