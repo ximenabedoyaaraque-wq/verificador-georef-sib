@@ -166,7 +166,7 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
     """Incertidumbre, cascada de georreferenciación (manual SiB) y comentarios."""
     import re as _re, unicodedata as _ud
 
-    df = df.copy()
+    df = df.copy().reset_index(drop=True)  # evita desalineación de índices
 
     def _norm(t):
         if pd.isna(t): return ""
@@ -221,6 +221,10 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
     def _sin_coord(i):
         v = df.at[i, "Latitud georreferenciada"]
         return pd.isna(v) or str(v).strip() in ("", "nan")
+
+    # Inicializar columnas temporales de la cascada (evita error de longitud en apply)
+    df["_cascada_estado"]  = ""
+    df["_cascada_detalle"] = ""
 
     if idx_geo is not None and _cg is not None:
         for idx in df.index:
