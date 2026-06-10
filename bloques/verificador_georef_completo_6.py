@@ -1982,8 +1982,13 @@ def preparar_coordenadas(df, idioma):
     )
     df[col_lat_f] = df[col_lat_f].astype(str)
     df[col_lon_f] = df[col_lon_f].astype(str)
-    df.loc[mask & (df[col_lat_f].str.strip() == ""), col_lat_f] = lats.astype(str)
-    df.loc[mask & (df[col_lon_f].str.strip() == ""), col_lon_f] = lons.astype(str)
+    # Fix: usar reindex+values para evitar desalineación de índices pandas
+    mask_lat = mask & (df[col_lat_f].str.strip() == "")
+    mask_lon = mask & (df[col_lon_f].str.strip() == "")
+    if mask_lat.any():
+        df.loc[mask_lat, col_lat_f] = lats.reindex(df.index).astype(str)[mask_lat].values
+    if mask_lon.any():
+        df.loc[mask_lon, col_lon_f] = lons.reindex(df.index).astype(str)[mask_lon].values
 
     # Si bloque 8 calculó lat_wgs84, usar esa (más precisa)
     if 'lat_wgs84' in df.columns:
