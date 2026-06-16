@@ -376,8 +376,8 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
             # Tolerar variaciones menores ("de" vs "del") quitando artículos ANTES de compactar
             def _norm_loc(t):
                 s = str(t).strip().lower()
-                s = unicodedata.normalize("NFD", s)
-                s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+                s = _ud.normalize("NFD", s)
+                s = "".join(c for c in s if _ud.category(c) != "Mn")
                 s = _re.sub(r'\b(del?|el|la|los|las|un|una)\b', '', s)
                 s = _re.sub(r'[^a-z0-9]+', '', s)
                 return s
