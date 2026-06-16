@@ -256,6 +256,9 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
     if col_val_esp:
         _col_loc = "*Localidad estandarizada" if "*Localidad estandarizada" in df.columns else ""
         if _col_loc:
+            def _norm_loc_pre(t):
+                s = _norm_muni(str(t))
+                return _re.sub(r'\b(del?|el|la|los|las|un|una)\b', '', s)
             for (loc_k, muni_k), grp in df.groupby([_col_loc, "*Municipio"]):
                 ok = grp[grp[col_val_esp].astype(str).str.contains("OK|✅", na=False)]
                 ok = ok[ok["Latitud georreferenciada"].notna()]
@@ -266,7 +269,7 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
                     radio = max(
                         _math.hypot((lp-la)*111, (lonp-lo)*111*_math.cos(_math.radians(lp)))*1000
                         for la, lo in zip(lats, lons)) if len(lats) > 1 else 0
-                    key = (_norm_muni(str(loc_k)), _norm_muni(str(muni_k)))
+                    key = (_norm_loc_pre(str(loc_k)), _norm_muni(str(muni_k)))
                     _ref_toponimo[key] = (round(lp,6), round(lonp,6), round(radio), len(ok))
 
     # Inicializar columnas temporales de la cascada
@@ -290,7 +293,18 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
                 lat_g = float(df.at[idx, "Latitud georreferenciada"])
                 lon_g = float(df.at[idx, "Longitud georreferenciada"])
                 val_actual = str(df.at[idx, col_val_esp]).strip() if col_val_esp else ""
-                muni_det = str(df.at[idx, "municipio_detectado"]).strip() if "municipio_detectado" in df.columns else ""
+                muni_det = str(df.at[idx, "municipio_detectado"]).strip() if "municipio_detectado" in df.columns and str(df.at[idx, "municipio_detectado"]).strip() not in ("", "nan") else ""
+                # Si no hay municipio_detectado, detectarlo desde GADM con la coord actual
+                if not muni_det and idx_geo is not None:
+                    try:
+                        import geopandas as _gpd; from shapely.geometry import Point as _Pt
+                        if not hasattr(_post_procesar_universal, '_gadm_gdf'):
+                            _post_procesar_universal._gadm_gdf = _gpd.read_file(gadm_path).set_crs("EPSG:4326", allow_override=True)
+                        _gdf = _post_procesar_universal._gadm_gdf
+                        _pt = _Pt(float(lon_g), float(lat_g))
+                        _hit = _gdf[_gdf.geometry.contains(_pt)]
+                        if len(_hit): muni_det = _hit.iloc[0]["NAME_2"]
+                    except Exception: pass
 
                 # FIX Caso 3: si la coord cae fuera del municipio reportado,
                 # reasignar al centroide del municipio y documentarlo (Manual Tabla 10 Caso 3)
@@ -343,7 +357,11 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
                 continue
 
             # Niveles 2-6 sin coordenada: intentar con referencia del mismo topónimo primero
-            loc_key = (_norm_muni(str(loc)), _norm_muni(muni))
+            # Tolerar variaciones menores ("de" vs "del") quitando artículos del key
+            def _norm_loc(t):
+                s = _norm_muni(str(t))
+                return _re.sub(r'\b(del?|el|la|los|las|un|una)\b', '', s)
+            loc_key = (_norm_loc(str(loc)), _norm_muni(muni))
             if loc_key in _ref_toponimo and str(loc).strip().lower() not in ("sin datos","nan",""):
                 lp, lonp, radio, n_ref = _ref_toponimo[loc_key]
                 df.at[idx, "Latitud georreferenciada"]  = lp
