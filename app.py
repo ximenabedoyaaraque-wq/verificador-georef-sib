@@ -257,8 +257,11 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
         _col_loc = "*Localidad estandarizada" if "*Localidad estandarizada" in df.columns else ""
         if _col_loc:
             def _norm_loc_pre(t):
-                s = _norm_muni(str(t))
-                return _re.sub(r'\b(del?|el|la|los|las|un|una)\b', '', s)
+                s = str(t).strip().lower()
+                s = unicodedata.normalize("NFD", s)
+                s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+                s = _re.sub(r'\b(del?|el|la|los|las|un|una)\b', '', s)
+                return _re.sub(r'[^a-z0-9]+', '', s)
             for (loc_k, muni_k), grp in df.groupby([_col_loc, "*Municipio"]):
                 ok = grp[grp[col_val_esp].astype(str).str.contains("OK|✅", na=False)]
                 ok = ok[ok["Latitud georreferenciada"].notna()]
@@ -294,17 +297,29 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
                 lon_g = float(df.at[idx, "Longitud georreferenciada"])
                 val_actual = str(df.at[idx, col_val_esp]).strip() if col_val_esp else ""
                 muni_det = str(df.at[idx, "municipio_detectado"]).strip() if "municipio_detectado" in df.columns and str(df.at[idx, "municipio_detectado"]).strip() not in ("", "nan") else ""
-                # Si no hay municipio_detectado, detectarlo desde GADM con la coord actual
+                # Si no hay municipio_detectado, detectarlo desde GADM usando shapely + idx_geo
                 if not muni_det and idx_geo is not None:
                     try:
                         import geopandas as _gpd; from shapely.geometry import Point as _Pt
-                        if not hasattr(_post_procesar_universal, '_gadm_gdf'):
-                            _post_procesar_universal._gadm_gdf = _gpd.read_file(gadm_path).set_crs("EPSG:4326", allow_override=True)
-                        _gdf = _post_procesar_universal._gadm_gdf
-                        _pt = _Pt(float(lon_g), float(lat_g))
-                        _hit = _gdf[_gdf.geometry.contains(_pt)]
-                        if len(_hit): muni_det = _hit.iloc[0]["NAME_2"]
-                    except Exception: pass
+                        _gdfk = "_gadm_gdf_cache"
+                        if not hasattr(df, _gdfk):
+                            object.__setattr__(df, _gdfk, None)
+                        _gdf_cache = getattr(df, _gdfk, None)
+                        if _gdf_cache is None:
+                            _gdf_cache = _gpd.read_file(gadm_path).set_crs("EPSG:4326", allow_override=True)
+                        _hit = _gdf_cache[_gdf_cache.geometry.contains(_Pt(float(lon_g), float(lat_g)))]
+                        if len(_hit):
+                            muni_det = str(_hit.iloc[0]["NAME_2"])
+                    except Exception:
+                        # Fallback: buscar en el índice de municipios por proximidad
+                        _best_m, _best_d = "", float("inf")
+                        for _dn, _cands in idx_geo["muni"].items():
+                            for _c in _cands:
+                                _dist = abs(_c["lat"]-lat_g) + abs(_c["lon"]-lon_g)
+                                if _dist < _best_d:
+                                    _best_d, _best_m = _dist, _c["raw"]
+                        if _best_d < 0.5:
+                            muni_det = _best_m
 
                 # FIX Caso 3: si la coord cae fuera del municipio reportado,
                 # reasignar al centroide del municipio y documentarlo (Manual Tabla 10 Caso 3)
@@ -357,10 +372,14 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
                 continue
 
             # Niveles 2-6 sin coordenada: intentar con referencia del mismo topónimo primero
-            # Tolerar variaciones menores ("de" vs "del") quitando artículos del key
+            # Tolerar variaciones menores ("de" vs "del") quitando artículos ANTES de compactar
             def _norm_loc(t):
-                s = _norm_muni(str(t))
-                return _re.sub(r'\b(del?|el|la|los|las|un|una)\b', '', s)
+                s = str(t).strip().lower()
+                s = unicodedata.normalize("NFD", s)
+                s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+                s = _re.sub(r'\b(del?|el|la|los|las|un|una)\b', '', s)
+                s = _re.sub(r'[^a-z0-9]+', '', s)
+                return s
             loc_key = (_norm_loc(str(loc)), _norm_muni(muni))
             if loc_key in _ref_toponimo and str(loc).strip().lower() not in ("sin datos","nan",""):
                 lp, lonp, radio, n_ref = _ref_toponimo[loc_key]
