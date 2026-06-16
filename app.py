@@ -203,6 +203,29 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
             df[col] = ""
         df[col] = df[col].astype(object)
 
+    # FIX coordenadas originales: limpiar caracteres inválidos (?, coma→punto, etc.)
+    # Manual p.67: conservar la coordenada original del colector; un '?' o coma son errores
+    # de digitación evidentes que deben corregirse antes de convertir.
+    import re as _re, unicodedata as _ud
+    def _limpiar_coord(val):
+        """Quita caracteres inválidos (?, *, espacios extra) y normaliza separador decimal."""
+        if pd.isna(val) or str(val).strip() in ("", "nan"): return val
+        s = str(val).strip()
+        s = _re.sub(r"[?*°\s]", lambda m: " " if m.group() == " " else "", s)
+        s = s.replace(",", ".")
+        s = _re.sub(r"\s+", " ", s).strip()
+        return s if s else val
+    for c_orig in ("Latitud original", "Longitud original"):
+        if c_orig in df.columns:
+            df[c_orig] = df[c_orig].apply(_limpiar_coord)
+
+    # FIX normalizador para comparación de nombres (anti-PuertoLibertador/Puerto Libertador)
+    def _norm_muni(t):
+        if pd.isna(t) or str(t).strip() in ("", "nan"): return ""
+        t = _ud.normalize("NFD", str(t).strip())
+        t = "".join(c for c in t if _ud.category(c) != "Mn").lower()
+        return _re.sub(r"\s+", "", _re.sub(r"[^a-z0-9]+", " ", t))  # compacto sin espacios
+
     # Cargar cascada, gaceteros e índice GADM (una sola vez)
     idx_geo = None
     gaceteros = []
@@ -222,27 +245,122 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
         v = df.at[i, "Latitud georreferenciada"]
         return pd.isna(v) or str(v).strip() in ("", "nan")
 
-    # Inicializar columnas temporales de la cascada (evita error de longitud en apply)
+    # FIX coordenada del mismo topónimo (Manual Nivel 3 Caso 1, p.74):
+    # Si hay registros del mismo sitio (misma localidad+municipio) con coordenada
+    # verificada [✓] OK, usar su promedio como referencia — más fiel al manual que
+    # el centroide del municipio (que corresponde al Nivel 4, no al 3).
+    import math as _math
+    col_val_esp = ("Resultado validación espacial" if "Resultado validación espacial" in df.columns
+                   else "validacion_b2" if "validacion_b2" in df.columns else "")
+    _ref_toponimo = {}  # (loc_norm, muni_norm) -> (lat_prom, lon_prom, radio_m, n)
+    if col_val_esp:
+        _col_loc = "*Localidad estandarizada" if "*Localidad estandarizada" in df.columns else ""
+        if _col_loc:
+            for (loc_k, muni_k), grp in df.groupby([_col_loc, "*Municipio"]):
+                ok = grp[grp[col_val_esp].astype(str).str.contains("OK|✅", na=False)]
+                ok = ok[ok["Latitud georreferenciada"].notna()]
+                if len(ok) >= 2:
+                    lats = ok["Latitud georreferenciada"].astype(float).tolist()
+                    lons = ok["Longitud georreferenciada"].astype(float).tolist()
+                    lp, lonp = sum(lats)/len(lats), sum(lons)/len(lons)
+                    radio = max(
+                        _math.hypot((lp-la)*111, (lonp-lo)*111*_math.cos(_math.radians(lp)))*1000
+                        for la, lo in zip(lats, lons)) if len(lats) > 1 else 0
+                    key = (_norm_muni(str(loc_k)), _norm_muni(str(muni_k)))
+                    _ref_toponimo[key] = (round(lp,6), round(lonp,6), round(radio), len(ok))
+
+    # Inicializar columnas temporales de la cascada
     df["_cascada_estado"]  = ""
     df["_cascada_detalle"] = ""
+    df["_muni_gadm"]       = ""   # municipio real según GADM (para comentarios)
 
     if idx_geo is not None and _cg is not None:
         for idx in df.index:
             nivel = int(df.at[idx, "Nivel_final"]) if pd.notna(df.at[idx, "Nivel_final"]) else None
             loc   = df.at[idx, "*Localidad estandarizada"] if "*Localidad estandarizada" in df.columns else ""
-            muni  = df.at[idx, "*Municipio"]    if "*Municipio"    in df.columns else ""
-            depto = df.at[idx, "*Departamento"] if "*Departamento" in df.columns else ""
+            muni  = str(df.at[idx, "*Municipio"])    if "*Municipio"    in df.columns else ""
+            depto = str(df.at[idx, "*Departamento"]) if "*Departamento" in df.columns else ""
 
-            # Nivel 7 no se georreferencia; nivel 1 con coordenada válida se respeta
             if nivel == 7:
                 df.at[idx, "Método de georreferenciación"] = "No se georreferencia (Nivel 7)"
                 continue
+
+            # Nivel 1 con coordenada: verificar si es Caso 3 (cae en otro municipio)
             if nivel == 1 and not _sin_coord(idx):
-                # ya tiene coordenada propia validada; solo completar método si falta
+                lat_g = float(df.at[idx, "Latitud georreferenciada"])
+                lon_g = float(df.at[idx, "Longitud georreferenciada"])
+                val_actual = str(df.at[idx, col_val_esp]).strip() if col_val_esp else ""
+                muni_det = str(df.at[idx, "municipio_detectado"]).strip() if "municipio_detectado" in df.columns else ""
+
+                # FIX Caso 3: si la coord cae fuera del municipio reportado,
+                # reasignar al centroide del municipio y documentarlo (Manual Tabla 10 Caso 3)
+                if "[X]" in val_actual or "Error" in val_actual:
+                    c3lat, c3lon, c3info = _gm.match_municipio(muni, depto, idx_geo)
+                    if c3lat is not None:
+                        df.at[idx, "Latitud georreferenciada"]  = c3lat
+                        df.at[idx, "Longitud georreferenciada"] = c3lon
+                        df.at[idx, "Método de georreferenciación"] = f"Reasignado a centroide de {muni} (Manual Tabla 10, Caso 3)"
+                        df.at[idx, "_cascada_estado"]  = "[X] Error — reasignado"
+                        df.at[idx, "_muni_gadm"]       = muni_det
+                        df.at[idx, "_cascada_detalle"] = (
+                            f"COORDENADA ORIGINAL FUERA DEL MUNICIPIO REPORTADO: "
+                            f"la coordenada ({lat_g:.5f}, {lon_g:.5f}) cae en '{muni_det or 'otro municipio'}', "
+                            f"no en {muni} ({depto}). "
+                            f"Según el manual (Tabla 10, Caso 3), cuando la coordenada no corresponde "
+                            f"al lugar descrito no se valida: se reasignó al centroide de {muni}. "
+                            f"Verificar si el error está en la coordenada original o en el municipio reportado.")
+                    continue
+
+                # FIX falso positivo escritura GADM: PuertoLibertador ≠ Puerto Libertador
+                # GADM concatena nombres compuestos; el colector los escribe con espacios.
+                # Si el normalizador compacto los iguala → es el mismo municipio → OK real.
+                if ("[!]" in val_actual or "Revisar" in val_actual) and muni_det:
+                    if _norm_muni(muni_det) == _norm_muni(muni):
+                        # Mismo municipio, solo diferencia tipográfica GADM vs colector
+                        if col_val_esp:
+                            df.at[idx, col_val_esp] = "[✓] OK"
+                        df.at[idx, "_cascada_estado"]  = "[✓] OK"
+                        df.at[idx, "_cascada_detalle"] = (
+                            f"Coordenada validada dentro de {muni}. "
+                            f"Nota: GADM escribe este municipio como '{muni_det}' (sin espacios), "
+                            f"convención tipográfica distinta a la del colector ('{muni}') — "
+                            f"es el mismo lugar, no hay error en los datos.")
+                    elif _norm_muni(muni_det) and _norm_muni(muni_det) != _norm_muni(muni):
+                        # Zona limítrofe: coordenada en municipio vecino según GADM
+                        df.at[idx, "_cascada_estado"]  = "[!] Revisar"
+                        df.at[idx, "_cascada_detalle"] = (
+                            f"Zona limítrofe: la coordenada cae en '{muni_det}' según GADM, "
+                            f"pero el colector reportó {muni}. "
+                            f"En zonas de límite municipal, el conocimiento de campo del colector "
+                            f"prevalece sobre el límite cartográfico (Manual Tabla 10 Caso 2). "
+                            f"Se mantiene la coordenada original y el municipio reportado. "
+                            f"Verificar con el colector si hubo imprecisión en el límite.")
+                    continue
+
+                # Nivel 1 OK normal
                 if str(df.at[idx, "Método de georreferenciación"]).strip() in ("", "nan"):
                     df.at[idx, "Método de georreferenciación"] = "Coordenada original del colector"
                 continue
 
+            # Niveles 2-6 sin coordenada: intentar con referencia del mismo topónimo primero
+            loc_key = (_norm_muni(str(loc)), _norm_muni(muni))
+            if loc_key in _ref_toponimo and str(loc).strip().lower() not in ("sin datos","nan",""):
+                lp, lonp, radio, n_ref = _ref_toponimo[loc_key]
+                df.at[idx, "Latitud georreferenciada"]  = lp
+                df.at[idx, "Longitud georreferenciada"] = lonp
+                df.at[idx, "Método de georreferenciación"] = (
+                    f"Coordenada de referencia del mismo sitio (promedio de {n_ref} registros "
+                    f"verificados del mismo topónimo en {muni})")
+                df.at[idx, "Fuentes de georreferenciación"] = "Registros verificados del mismo lote"
+                df.at[idx, "_cascada_estado"]  = "[✓] OK"
+                df.at[idx, "_cascada_detalle"] = (
+                    f"No hay coordenada original para este registro, pero existen {n_ref} registros "
+                    f"verificados [✓] del mismo sitio ('{loc}', {muni}). "
+                    f"Según el manual (Nivel 3 Caso 1, p.74), se usa su coordenada promedio "
+                    f"como referencia cartográfica. Incertidumbre = dispersión del lote: {radio} m.")
+                continue
+
+            # Cascada normal: gacetero → municipio → depto → país → marca
             res = _cg.georreferenciar_localidad(
                 loc, muni, depto, nivel, gaceteros, idx_geo,
                 _gm.match_municipio, _gm.centroide_departamento)
@@ -253,7 +371,6 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
             df.at[idx, "Método de georreferenciación"] = res["metodo"]
             if res["fuente"]:
                 df.at[idx, "Fuentes de georreferenciación"] = res["fuente"]
-            # guardar estado/detalle para los comentarios amigables
             df.at[idx, "_cascada_estado"]  = res["estado"]
             df.at[idx, "_cascada_detalle"] = res["detalle"]
 
@@ -271,44 +388,40 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
         muni_det = str(row.get("municipio_detectado", "")).strip()
         lat_o    = str(row.get("Latitud original", "")).strip()
         fmt      = str(row.get("formato_coordenada", "")).strip()
-
-        # Comentario AMIGABLE de la cascada (manual SiB) si está disponible
         metodo_c  = str(row.get("Método de georreferenciación", "")).strip()
         detalle_c = str(row.get("_cascada_detalle", "")).strip()
-        if detalle_c and detalle_c.lower() != "nan":
-            base = f"Nivel {nivel}: {metodo_c}. {detalle_c}"
-            if nivel == 7:
-                return ("Nivel 7: información dudosa o contradictoria. Según el manual, "
-                        "no se georreferencia. Requiere revisión del curador.")
-            return base
 
         if nivel == 7:
-            return com
+            return ("Nivel 7: información dudosa o contradictoria. Según el manual SiB, "
+                    "los registros de Nivel 7 no se georreferencian. "
+                    "Requiere revisión del curador para resolver la inconsistencia.")
 
+        # Usar el comentario amigable de la cascada si existe
+        if detalle_c and detalle_c.lower() not in ("nan", ""):
+            return detalle_c
+
+        # Fallback a comentarios por estado de validación
         if "OK" in val or "✅" in val:
-            suf = ("[✓] OK — coordenada validada dentro del municipio reportado. "
-                   "El punto es consistente con la localidad registrada.")
+            suf = ("[✓] OK — coordenada validada dentro del municipio reportado.")
         elif "Revisar" in val or "⚠" in val or "[!]" in val:
-            suf = (f"[!] REQUIERE REVISIÓN — la coordenada cae en municipio diferente al reportado "
-                   f"({muni_det}). Verificar: error de digitación, municipio registrado incorrectamente, "
-                   f"o localidad en límite entre municipios.")
+            suf = (f"[!] REQUIERE REVISIÓN — la coordenada cae en '{muni_det}', "
+                   f"distinto al municipio reportado. Verificar: error de digitación, "
+                   f"municipio incorrecto, o localidad en zona limítrofe.")
         elif "Error" in val or "❌" in val or "[X]" in val:
-            suf = (f"[X] ERROR — la coordenada no corresponde al municipio reportado. "
-                   f"Puede caer fuera de Colombia o en una región muy distante. "
-                   f"Valor original: {lat_o} (formato: {fmt}). Municipio detectado: {muni_det}. "
-                   f"Requiere corrección manual antes de publicar.")
-        elif str(lat_o) in ("", "nan") or "no se pudo" in com.lower():
-            suf = (f"[~] COORDENADA PENDIENTE — el valor original '{lat_o}' no pudo convertirse a decimal. "
-                   f"Revisar el registro original y corregir manualmente.")
+            suf = (f"[X] ERROR — la coordenada original no corresponde al municipio reportado. "
+                   f"Valor original: {lat_o} (formato: {fmt}). "
+                   f"Municipio detectado por GADM: '{muni_det}'. "
+                   f"Se reasignó al centroide del municipio reportado (Manual Tabla 10 Caso 3). "
+                   f"Requiere verificación manual.")
         else:
-            return com
+            return com if com else f"Nivel {nivel}: {metodo_c}."
 
-        sep = " | " if com else ""
-        return com + sep + suf
+        sep = " | " if com and com.lower() != "nan" else ""
+        base = com if com and com.lower() != "nan" else ""
+        return base + sep + suf
 
     df["Comentarios de la georreferenciación"] = df.apply(_comentario, axis=1)
-    # limpiar columnas internas de la cascada
-    for c in ("_cascada_estado", "_cascada_detalle"):
+    for c in ("_cascada_estado", "_cascada_detalle", "_muni_gadm"):
         if c in df.columns:
             df = df.drop(columns=[c])
     return df
@@ -401,12 +514,12 @@ if ejecutar and file_180 and file_84:
                 df["depto_detectado"]     = ""
                 df["mensaje_b2"]          = ""
 
-            prog.progress(60, text="Verificando elevación…")
-            df = aplicar_bloque3(df)
-
             prog.progress(70, text="Asignando centroides…")
             if gadm_ok and GADM_PATH:
-                df = aplicar_bloque9(df, GADM_PATH, usar_nominatim=True)
+                df = aplicar_bloque9(df, GADM_PATH, usar_nominatim=False)
+
+            prog.progress(78, text="Verificando elevación…")
+            df = aplicar_bloque3(df)
 
             # Sacar elevación API de columnas internas → columnas visibles en Excel
             if "elevacion_api" in df.columns:
@@ -538,22 +651,7 @@ else:
             from streamlit_folium import st_folium
             from folium.plugins import MarkerCluster
 
-            c1, c2 = st.columns([2,2])
-            with c1:
-                filtro_res = st.selectbox("Resultado", ["Todos","✅ OK","⚠ Revisar","❌ Error"])
-            with c2:
-                deptos = ["Todos"] + sorted(df["*Departamento"].dropna().unique().tolist()) \
-                    if "*Departamento" in df.columns else ["Todos"]
-                filtro_dep = st.selectbox("Departamento", deptos)
-
             df_m = df.copy()
-            # filtro por resultado: usar contains para soportar ambos formatos
-            if filtro_res != "Todos" and col_val:
-                kw = {"✅ OK":"OK","⚠ Revisar":"Revisar","❌ Error":"Error"}.get(filtro_res,"")
-                if kw:
-                    df_m = df_m[df_m[col_val].astype(str).str.contains(kw, case=False, na=False)]
-            if filtro_dep != "Todos" and "*Departamento" in df_m.columns:
-                df_m = df_m[df_m["*Departamento"] == filtro_dep]
 
             m = folium.Map(location=[5.5,-74.5], zoom_start=6,
                            tiles="CartoDB Positron", prefer_canvas=True)
@@ -745,7 +843,7 @@ else:
             st.caption(f"Mostrando **{n_puntos}** puntos · 🟢 OK · 🟠 Revisar · 🔴 Error · ⚪ Sin validación. "
                        f"Los círculos de agrupación usan el mismo color que los puntos.")
             st_folium(m, width=None, height=520, returned_objects=[],
-                      key=f"visor_{filtro_res}_{filtro_dep}")
+                      key="visor_mapa")
 
         except ImportError:
             st.warning("Instala streamlit-folium para activar el visor.")
