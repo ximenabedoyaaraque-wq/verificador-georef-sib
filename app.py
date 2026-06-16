@@ -257,11 +257,12 @@ def _post_procesar_universal(df, gadm_path=None, gacetero_path=None):
         _col_loc = "*Localidad estandarizada" if "*Localidad estandarizada" in df.columns else ""
         if _col_loc:
             def _norm_loc_pre(t):
+                import unicodedata as _ucd2, re as _re2
                 s = str(t).strip().lower()
-                s = unicodedata.normalize("NFD", s)
-                s = "".join(c for c in s if unicodedata.category(c) != "Mn")
-                s = _re.sub(r'\b(del?|el|la|los|las|un|una)\b', '', s)
-                return _re.sub(r'[^a-z0-9]+', '', s)
+                s = _ucd2.normalize("NFD", s)
+                s = "".join(c for c in s if _ucd2.category(c) != "Mn")
+                s = _re2.sub(r'\b(del?|el|la|los|las|un|una)\b', '', s)
+                return _re2.sub(r'[^a-z0-9]+', '', s)
             for (loc_k, muni_k), grp in df.groupby([_col_loc, "*Municipio"]):
                 ok = grp[grp[col_val_esp].astype(str).str.contains("OK|✅", na=False)]
                 ok = ok[ok["Latitud georreferenciada"].notna()]
